@@ -6,6 +6,7 @@ members = [
     "crates/capture",
     "crates/storage",
     "crates/pipeline",
+    "crates/tracker",
     "src-tauri",
 ]
 # O app Tauri precisa de WebView2/webkit para compilar; os crates de lógica não.
@@ -15,6 +16,7 @@ default-members = [
     "crates/capture",
     "crates/storage",
     "crates/pipeline",
+    "crates/tracker",
 ]
 
 [workspace.package]
@@ -29,6 +31,7 @@ combat = { path = "crates/combat" }
 capture = { path = "crates/capture" }
 storage = { path = "crates/storage" }
 pipeline = { path = "crates/pipeline" }
+tracker = { path = "crates/tracker" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

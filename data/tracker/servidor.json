@@ -1,0 +1,10 @@
+{
+  "_nota": "Relógio do servidor global (NA, EU, SA, JP). Os sites de referência dão reset às 16:00 do servidor = 07:00 UTC, ou seja, o relógio do servidor está em UTC+9. Confira com a contagem 'Recarga diária em' do jogo; se estiver diferente, ajuste aqui.",
+  "fontes": [
+    "https://aion2hub.com/tools/event-timer",
+    "https://metabot.gg/en/aion-2/guides/daily-weekly-checklist"
+  ],
+  "utc_offset_min": 540,
+  "reset_diario": "16:00",
+  "reset_semanal_dia": 3
+}

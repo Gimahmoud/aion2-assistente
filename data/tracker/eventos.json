@@ -1,0 +1,15 @@
+{
+  "_nota": "Horários no relógio do servidor (servidor.json). tipo 'fixo': horários do dia, opcionalmente só em alguns dias (0 = domingo ... 6 = sábado). tipo 'intervalo': a cada N minutos a partir de offset_min depois da meia-noite do servidor.",
+  "fontes": [
+    "https://aion2hub.com/tools/event-timer",
+    "https://metabot.gg/en/aion-2/guides/daily-weekly-checklist"
+  ],
+  "eventos": [
+    { "id": "reset-diario", "nome": "Reset diário", "tipo": "fixo", "horarios": ["16:00"], "aviso_min": 30 },
+    { "id": "reset-semanal", "nome": "Reset semanal", "descricao": "Entradas semanais que sobrarem são perdidas.", "tipo": "fixo", "horarios": ["16:00"], "dias": [3], "aviso_min": 120 },
+    { "id": "fenda-espaco-tempo", "nome": "Fenda Espaço-Temporal", "descricao": "Portais reabrem a cada 3 horas.", "tipo": "intervalo", "a_cada_min": 180, "offset_min": 0, "aviso_min": 5 },
+    { "id": "beritra", "nome": "Ataque aéreo de Beritra", "descricao": "Chefe no meio de cada hora.", "tipo": "intervalo", "a_cada_min": 60, "offset_min": 30, "aviso_min": 5, "alerta_padrao": false },
+    { "id": "nahma", "nome": "Lorde Guardião Nahma (Abismo)", "descricao": "Reshanta Inferior e Média.", "tipo": "fixo", "horarios": ["21:00"], "dias": [0, 5], "aviso_min": 10 },
+    { "id": "executores-abismo", "nome": "Executores do Abismo", "descricao": "Tamasa, Kaira e Argo (Inferior); Ducal, Marakha e Dramos (Média).", "tipo": "fixo", "horarios": ["21:30"], "dias": [1, 4, 6], "aviso_min": 10 }
+  ]
+}

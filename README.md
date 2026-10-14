@@ -1,6 +1,6 @@
 # Aion 2 Assistente
 
-Medidor de DPS para Aion 2 no Windows, com overlay sobre o jogo e histórico de lutas. Depois virão o tracker de personagem (mascotes, diários e semanais) e os alertas de eventos.
+Medidor de DPS para Aion 2 no Windows, com overlay sobre o jogo e histórico de lutas, mais um tracker de personagem (mascotes, diárias e semanais) e alertas de eventos.
 
 > Projeto independente, sem vínculo com a NCSoft. O medidor **só escuta** uma cópia do tráfego de rede: não abre o processo do jogo, não lê memória e não envia nem altera pacotes. Mesmo assim, a NCSoft nunca autorizou oficialmente medidores de terceiros. Use por sua conta.
 
@@ -15,6 +15,8 @@ Medidor de DPS para Aion 2 no Windows, com overlay sobre o jogo e histórico de 
 | M4 Overlay | pronto (transparente, clique atravessa, Ctrl+Shift+O para mover) |
 | M5 Histórico | pronto (SQLite local) |
 | M6 Instalador | build NSIS no CI; updater automático ainda não configurado |
+| Tracker de personagem | pronto, com marcação manual |
+| Alertas de eventos | pronto; horários do servidor global ainda a conferir no jogo |
 
 ## Como usar (Windows)
 
@@ -24,6 +26,19 @@ Medidor de DPS para Aion 2 no Windows, com overlay sobre o jogo e histórico de 
 4. Abra o app e entre no jogo. O app encontra sozinho a conexão do Aion 2.
 
 Atalhos: **Ctrl+Shift+R** começa uma nova luta, **Ctrl+Shift+O** destrava o overlay para mover e redimensionar.
+
+### Personagens: mascotes, diárias e semanais
+
+Na aba **Personagens**, adicione cada personagem seu. Para cada um:
+
+- **Diárias e semanais**: marque o que já fez. Tarefas com limite (por exemplo 5 Missões de dever) têm um contador. Tudo zera sozinho no reset do servidor, e o app mostra quanto falta para o próximo. O selo **servidor** indica que o limite é dividido entre os personagens do mesmo servidor. Dá para criar tarefas suas no fim da página.
+- **Mascotes**: marque os que você já tem e use o filtro **Faltando** para ver o que ainda falta. A lista que vem com o app ainda é parcial; adicione os que faltarem pelo formulário no fim da página.
+
+### Eventos e alertas
+
+A aba **Eventos** mostra o que acontece nas próximas 24 horas no horário do seu computador (Fenda Espaço-Temporal, chefes do Abismo, resets e outros). Em **Alertas**, ligue os eventos que quer acompanhar e escolha com quantos minutos de antecedência ser avisado. O aviso chega como notificação do Windows enquanto o app estiver aberto, mesmo minimizado. Use **Testar notificação** para conferir se o Windows está deixando o app avisar.
+
+Os horários seguem o calendário fixo do servidor global (reset diário às 04:00 de Brasília, semanal na quarta). Se algum horário não bater com o jogo, avise.
 
 ### Ajudando a validar o protocolo
 
@@ -53,9 +68,11 @@ crates/combat     lutas, agregação por jogador e skill, DPS
 crates/capture    Npcap ao vivo, descoberta do servidor, gravação e replay de .pcap
 crates/storage    SQLite (histórico e configurações)
 crates/pipeline   liga tudo; CLIs replay e synth
+crates/tracker    personagens, mascotes, diárias/semanais, agenda de eventos e alertas
 src-tauri         app desktop: thread do medidor, comandos, overlay, atalhos
 ui                React + TypeScript + Tailwind + shadcn/ui
 data/opcodes      tabela de opcodes por versão do jogo
+data/tracker      mascotes, tarefas, eventos e relógio do servidor (JSON)
 fixtures          gravações sintéticas para testes (não são tráfego real)
 docs              arquitetura
 ```
