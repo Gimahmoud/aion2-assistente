@@ -15,12 +15,14 @@
 - **Ctrl+Shift+O**: destrava o overlay para arrastar e redimensionar. Aperte de novo para travar.
 - **Ctrl+Shift+R**: começa uma nova luta.
 - A aba **Histórico** guarda as lutas anteriores com o detalhe por habilidade.
+- A aba **Personagens** tem, para cada personagem, as diárias e semanais (zeram sozinhas no reset do servidor) e a lista de mascotes com o filtro **Faltando**. Você adiciona tarefas e mascotes que faltarem.
+- A aba **Eventos** mostra os próximos eventos no horário do seu computador. Ligue os que quiser e escolha com quantos minutos de antecedência ser avisado por notificação do Windows. Use **Testar notificação** para conferir.
 
 ## Antes de usar
 
 - O app apenas **escuta** uma cópia do tráfego de rede do jogo. Ele não mexe no jogo, não lê memória e não envia nada.
 - A NCSoft nunca autorizou oficialmente medidores de terceiros. O risco é baixo, mas é seu.
-- Esta é uma **versão de teste**: os números ainda estão sendo comparados com o Combat Analysis do jogo (Ctrl+X) e podem não bater.
+- Esta é uma **versão de teste**: os números ainda estão sendo comparados com o Combat Analysis do jogo (Ctrl+X) e podem não bater. Os horários de reset e eventos seguem o servidor global e ainda estão sendo conferidos.
 
 ## Encontrou um problema?
 
