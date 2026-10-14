@@ -1,0 +1,37 @@
+{
+  "version": "kr-2026-06 (TK v1.7.5)",
+  "own_nickname": [
+    51,
+    54
+  ],
+  "other_nickname": [
+    [
+      68,
+      54
+    ],
+    [
+      69,
+      54
+    ]
+  ],
+  "summon": [
+    65,
+    54
+  ],
+  "damage": [
+    4,
+    56
+  ],
+  "dot": [
+    5,
+    56
+  ],
+  "battle_toggle": [
+    33,
+    141
+  ],
+  "remain_hp": [
+    0,
+    141
+  ]
+}

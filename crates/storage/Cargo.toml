@@ -1,0 +1,13 @@
+[package]
+name = "storage"
+description = "Banco local SQLite: histórico de lutas e configurações"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+combat.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rusqlite = { version = "0.40", features = ["bundled"] }

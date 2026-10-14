@@ -1,0 +1,13 @@
+[package]
+name = "pipeline"
+description = "Liga captura, protocolo e motor de combate; inclui o CLI de replay"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+capture.workspace = true
+protocol.workspace = true
+combat.workspace = true
+serde.workspace = true
+serde_json.workspace = true

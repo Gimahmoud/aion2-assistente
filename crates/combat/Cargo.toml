@@ -1,0 +1,10 @@
+[package]
+name = "combat"
+description = "Motor de combate: lutas, agregação por jogador e skill, DPS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+protocol.workspace = true
+serde.workspace = true
