@@ -1,0 +1,118 @@
+//! Segmento TCP -> mensagens -> eventos -> lutas.
+//!
+//! Não conhece Tauri nem threads: quem chama decide de onde vêm os segmentos
+//! (captura ao vivo ou replay) e o que fazer com as lutas encerradas.
+
+use std::collections::HashMap;
+
+use capture::{FlowStats, FlowTable, Segment, ServerFilter};
+use combat::{EncounterSnapshot, Engine, EngineConfig};
+use protocol::{Decoder, GameEvent, OpcodeTable};
+use serde::Serialize;
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct PipelineStats {
+    pub segments: u64,
+    pub bytes: u64,
+    pub messages: u64,
+    pub compressed_batches: u64,
+    pub resyncs: u64,
+    pub tcp_gaps: u64,
+    pub decompress_errors: u64,
+    pub events: HashMap<&'static str, u64>,
+    /// Opcodes sem decodificador, como "0x3804", com contagem. Top 20.
+    pub unknown_opcodes: Vec<(String, u64)>,
+    pub opcode_table: String,
+}
+
+pub struct Pipeline {
+    flows: FlowTable,
+    decoder: Decoder,
+    engine: Engine,
+    events: HashMap<&'static str, u64>,
+}
+
+impl Pipeline {
+    pub fn new(table: OpcodeTable, filter: ServerFilter, cfg: EngineConfig) -> Self {
+        Self {
+            flows: FlowTable::new(filter),
+            decoder: Decoder::new(table),
+            engine: Engine::new(cfg),
+            events: HashMap::new(),
+        }
+    }
+
+    pub fn set_filter(&mut self, filter: ServerFilter) {
+        self.flows.set_filter(filter);
+    }
+
+    /// Processa um segmento. Devolve as lutas que se encerraram.
+    pub fn push_segment(&mut self, seg: &Segment) -> Vec<EncounterSnapshot> {
+        let mut closed = Vec::new();
+        for msg in self.flows.push(seg) {
+            for ev in self.decoder.decode(&msg) {
+                *self.events.entry(kind(&ev)).or_default() += 1;
+                closed.extend(self.engine.handle(&ev, seg.ts_ms));
+            }
+        }
+        closed
+    }
+
+    pub fn tick(&mut self, now_ms: u64) -> Option<EncounterSnapshot> {
+        self.engine.tick(now_ms)
+    }
+
+    pub fn reset(&mut self) -> Option<EncounterSnapshot> {
+        self.engine.reset()
+    }
+
+    pub fn snapshot(&self) -> Option<EncounterSnapshot> {
+        self.engine.snapshot()
+    }
+
+    pub fn opcode_version(&self) -> &str {
+        &self.decoder.table().version
+    }
+
+    pub fn stats(&self) -> PipelineStats {
+        let FlowStats {
+            segments,
+            bytes,
+            tcp_gaps,
+            framing,
+        } = self.flows.stats();
+        let mut unknown: Vec<(String, u64)> = self
+            .decoder
+            .unknown_opcodes
+            .iter()
+            .map(|(op, n)| (format!("0x{op:04x}"), *n))
+            .collect();
+        unknown.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        unknown.truncate(20);
+        PipelineStats {
+            segments,
+            bytes,
+            messages: framing.messages,
+            compressed_batches: framing.compressed_batches,
+            resyncs: framing.resyncs,
+            tcp_gaps,
+            decompress_errors: framing.decompress_errors,
+            events: self.events.clone(),
+            unknown_opcodes: unknown,
+            opcode_table: self.decoder.table().version.clone(),
+        }
+    }
+}
+
+fn kind(ev: &GameEvent) -> &'static str {
+    match ev {
+        GameEvent::Damage(d) if d.dot => "dot",
+        GameEvent::Damage(_) => "damage",
+        GameEvent::OwnCharacter { .. } => "own_character",
+        GameEvent::OtherCharacter { .. } => "other_character",
+        GameEvent::MobSpawn { .. } => "mob_spawn",
+        GameEvent::SummonOwner { .. } => "summon_owner",
+        GameEvent::BattleToggle { .. } => "battle_toggle",
+        GameEvent::MobHp { .. } => "mob_hp",
+    }
+}

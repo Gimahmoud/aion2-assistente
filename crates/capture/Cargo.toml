@@ -1,0 +1,22 @@
+[package]
+name = "capture"
+description = "Captura passiva (Npcap), gravação/replay de .pcap e separação dos fluxos TCP"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Captura ao vivo via libpcap/Npcap. No Windows exige o Npcap SDK para linkar.
+live = ["dep:pcap", "dep:netstat2", "dep:sysinfo"]
+
+[dependencies]
+protocol.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+crossbeam-channel.workspace = true
+etherparse = "0.21"
+pcap-file = "2"
+pcap = { version = "2", optional = true }
+netstat2 = { version = "0.11", optional = true }
+sysinfo = { version = "0.39", optional = true, default-features = false, features = ["system"] }

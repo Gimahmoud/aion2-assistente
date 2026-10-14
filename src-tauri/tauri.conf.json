@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Aion 2 Assistente",
+  "version": "0.1.0",
+  "identifier": "io.github.gimahmoud.aion2assistente",
+  "build": {
+    "frontendDist": "../ui/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm --prefix ui run dev",
+    "beforeBuildCommand": "npm --prefix ui run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Aion 2 Assistente",
+        "url": "index.html",
+        "width": 960,
+        "height": 640,
+        "minWidth": 720,
+        "minHeight": 480
+      },
+      {
+        "label": "overlay",
+        "title": "Overlay DPS",
+        "url": "overlay.html",
+        "width": 300,
+        "height": 220,
+        "x": 40,
+        "y": 200,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "resizable": true,
+        "focus": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "shortDescription": "Medidor de DPS para Aion 2",
+    "copyright": "MIT",
+    "windows": {
+      "nsis": { "installMode": "currentUser" }
+    }
+  }
+}
