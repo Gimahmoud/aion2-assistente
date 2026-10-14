@@ -1,0 +1,19 @@
+{
+  "_nota": "Diárias e semanais por personagem. 'meta' é quantas vezes dá para fazer por período. 'escopo' = servidor quer dizer que o limite é dividido entre os personagens do mesmo servidor. Nomes em inglês entre parênteses para achar no jogo enquanto a tradução não é conferida.",
+  "fontes": ["https://metabot.gg/en/aion-2/guides/daily-weekly-checklist"],
+  "tarefas": [
+    { "id": "missoes-dever", "nome": "Missões de dever (Duty Missions)", "periodo": "diario", "meta": 5, "escopo": "servidor" },
+    { "id": "pesadelo", "nome": "Pesadelo (Nightmare)", "periodo": "diario", "meta": 2, "escopo": "personagem" },
+    { "id": "chave-festival-shugo", "nome": "Chave do Festival Shugo", "periodo": "diario", "meta": 3, "escopo": "servidor" },
+    { "id": "chave-invasao-dimensional", "nome": "Chave da Invasão Dimensional", "periodo": "diario", "meta": 1, "escopo": "servidor" },
+    { "id": "exploracao", "nome": "Recompensas de Exploração (por dungeon)", "periodo": "semanal", "meta": 7, "escopo": "personagem" },
+    { "id": "conquista-chefes", "nome": "Chefes finais de Conquista (Conquest)", "periodo": "semanal", "meta": 35, "escopo": "personagem" },
+    { "id": "transcendencia-chefes", "nome": "Chefes finais de Transcendência", "periodo": "semanal", "meta": 28, "escopo": "personagem" },
+    { "id": "raide", "nome": "Tentativas de raide (por raide)", "periodo": "semanal", "meta": 4, "escopo": "personagem" },
+    { "id": "provacao-ascensao", "nome": "Provação da Ascensão (Ascension Trial)", "periodo": "semanal", "meta": 3, "escopo": "personagem" },
+    { "id": "subjugacao", "nome": "Tickets de Subjugação", "periodo": "semanal", "meta": 3, "escopo": "personagem" },
+    { "id": "fissura-desconhecida", "nome": "Fissura Desconhecida (Unknown Fissure)", "periodo": "semanal", "meta": 14, "escopo": "servidor" },
+    { "id": "cubos", "nome": "Cubos não obtidos", "periodo": "semanal", "meta": 10, "escopo": "servidor" },
+    { "id": "missoes-temporada", "nome": "Missões semanais da temporada (Daeva Pass)", "periodo": "semanal", "meta": 1, "escopo": "personagem" }
+  ]
+}

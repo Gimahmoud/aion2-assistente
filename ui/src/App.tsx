@@ -1,9 +1,11 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { Activity, FileUp, History, PanelTop, RotateCcw, Stethoscope } from "lucide-react";
+import { Activity, CalendarClock, FileUp, History, PanelTop, RotateCcw, Stethoscope, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { CharactersTab } from "@/components/CharactersTab";
 import { DiagnosticsTab } from "@/components/DiagnosticsTab";
 import { EncounterDetail } from "@/components/EncounterDetail";
+import { EventsTab } from "@/components/EventsTab";
 import { HistoryTab } from "@/components/HistoryTab";
 import { StatusBanner } from "@/components/StatusBanner";
 import { Button } from "@/components/ui/button";
@@ -123,6 +125,12 @@ export default function App() {
           <TabsTrigger value="history">
             <History /> Histórico
           </TabsTrigger>
+          <TabsTrigger value="characters">
+            <Users /> Personagens
+          </TabsTrigger>
+          <TabsTrigger value="events">
+            <CalendarClock /> Eventos
+          </TabsTrigger>
           <TabsTrigger value="diag">
             <Stethoscope /> Diagnóstico
           </TabsTrigger>
@@ -139,6 +147,12 @@ export default function App() {
         </TabsContent>
         <TabsContent value="history">
           <HistoryTab />
+        </TabsContent>
+        <TabsContent value="characters">
+          <CharactersTab />
+        </TabsContent>
+        <TabsContent value="events">
+          <EventsTab />
         </TabsContent>
         <TabsContent value="diag">
           <DiagnosticsTab status={status} />

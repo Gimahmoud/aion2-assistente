@@ -4,6 +4,7 @@
 mod commands;
 mod npcap;
 mod runtime;
+mod tracker_cmds;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -38,6 +39,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -68,6 +70,10 @@ fn main() {
             }
             app.manage(commands::AppState { runtime: rt, store });
 
+            let tracker = Arc::new(Mutex::new(tracker::Tracker::open(&data_dir.join("tracker.db"))?));
+            let wake = tracker_cmds::spawn_alerts(app.handle().clone(), tracker.clone());
+            app.manage(tracker_cmds::TrackerState { tracker, wake });
+
             app.global_shortcut().register(edit_overlay)?;
             app.global_shortcut().register(reset_fight)?;
             set_click_through(app.handle(), true)?;
@@ -82,6 +88,22 @@ fn main() {
             commands::set_recording,
             commands::set_overlay_click_through,
             commands::toggle_overlay,
+            tracker_cmds::list_characters,
+            tracker_cmds::add_character,
+            tracker_cmds::update_character,
+            tracker_cmds::remove_character,
+            tracker_cmds::get_checklist,
+            tracker_cmds::set_task_count,
+            tracker_cmds::add_custom_task,
+            tracker_cmds::remove_custom_task,
+            tracker_cmds::get_pets,
+            tracker_cmds::set_pet_owned,
+            tracker_cmds::add_custom_pet,
+            tracker_cmds::remove_custom_pet,
+            tracker_cmds::list_events,
+            tracker_cmds::upcoming_events,
+            tracker_cmds::set_event_alert,
+            tracker_cmds::test_notification,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o app");

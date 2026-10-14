@@ -1,0 +1,12 @@
+[package]
+name = "tracker"
+description = "Tracker de personagem (mascotes, diárias e semanais) e agenda de eventos com alertas"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rusqlite = { version = "0.40", features = ["bundled"] }
