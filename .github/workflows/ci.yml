@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Criar uma release na página do GitHub gera e anexa o instalador. A tag
-  # nova não dispara outro build: só a release, para rodar uma vez.
+  # Subir a versão do app na main já publica a release sozinho (job do
+  # Windows). Uma release criada à mão também publica, uma vez só.
   release:
     types: [published]
   workflow_dispatch:
@@ -54,6 +54,31 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      # Publica sozinho quando a versão do app sobe na main (a tag ainda não
+      # existe). Uma release criada à mão na página do GitHub também publica.
+      - name: Versão nova?
+        id: versao
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          tag="v$version"
+          publish=false
+          if [ "$EVENT" = release ]; then
+            if [ "$RELEASE_TAG" != "$tag" ]; then
+              echo "::error::A tag $RELEASE_TAG não bate com a versão do app ($version). Suba a versão antes da release."
+              exit 1
+            fi
+            publish=true
+          elif [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ] && [ -z "$(git ls-remote --tags origin "refs/tags/$tag")" ]; then
+            echo "Versão $version ainda não publicada: criando a release $tag."
+            publish=true
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -86,7 +111,7 @@ jobs:
         run: |
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             ../ui/node_modules/.bin/tauri build
-          elif [ "${{ github.event_name }}" = release ]; then
+          elif [ "${{ steps.versao.outputs.publish }}" = true ]; then
             echo "::error::Falta o secret TAURI_SIGNING_PRIVATE_KEY (Settings > Secrets and variables > Actions)."
             exit 1
           else
@@ -100,17 +125,13 @@ jobs:
       # latest.json é o que o app instalado consulta ao abrir. O GitHub troca
       # espaços por pontos no nome dos anexos, então o nome já sobe assim.
       - name: Preparar atualização automática
-        if: github.event_name == 'release'
+        if: steps.versao.outputs.publish == 'true'
         shell: bash
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ steps.versao.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
-          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          if [ "v$version" != "$TAG" ]; then
-            echo "::error::A tag $TAG não bate com a versão do app ($version). Suba a versão antes da release."
-            exit 1
-          fi
+          version="${TAG#v}"
           exe=$(ls target/release/bundle/nsis/*.exe)
           name=$(basename "$exe" | tr ' ' '.')
           mkdir publicar
@@ -126,9 +147,12 @@ jobs:
       # O app procura em "releases/latest", que ignora pré-releases: por isso
       # a release vira a mais recente.
       - name: Publicar release
-        if: github.event_name == 'release'
+        if: steps.versao.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.versao.outputs.tag }}
+          name: ${{ steps.versao.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: publicar/*
           body_path: .github/release-notes.md
           prerelease: false
