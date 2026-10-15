@@ -202,6 +202,11 @@ impl Engine {
         self.self_id
     }
 
+    /// Classe conhecida de uma entidade (do pacote de nome ou das skills).
+    pub fn class_of(&self, id: EntityId) -> Option<Class> {
+        self.entities.get(&id).and_then(|e| e.class)
+    }
+
     fn close(&mut self) -> Option<EncounterSnapshot> {
         self.pending.clear();
         let e = self.current.take()?;

@@ -37,6 +37,7 @@ fn main() {
         return;
     }
     println!("{}", serde_json::to_string_pretty(&p.stats()).unwrap());
+    println!("personagem: {:?}", p.own_character());
     for f in &fights {
         println!(
             "\nLuta #{}  {:.1}s  dano total {}  alvo {:?}",

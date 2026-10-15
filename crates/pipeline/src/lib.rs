@@ -25,7 +25,8 @@ pub struct PipelineStats {
     pub opcode_table: String,
 }
 
-/// Personagem logado, lido do pacote que o servidor manda ao entrar no mundo.
+/// Personagem logado. Vem do pacote de entrada no mundo ou, no SA, do pacote
+/// do grupo; quando o pacote não traz a classe, ela é deduzida das skills.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OwnCharacter {
     pub name: String,
@@ -66,13 +67,20 @@ impl Pipeline {
                     name, server, job_code, ..
                 } = &ev
                 {
+                    let class = job_code.and_then(Class::from_job_code).or_else(|| {
+                        // Mesmo personagem visto antes: mantém a classe conhecida.
+                        self.own.as_ref().filter(|o| &o.name == name).and_then(|o| o.class)
+                    });
                     self.own = Some(OwnCharacter {
                         name: name.clone(),
                         server: *server,
-                        class: job_code.and_then(Class::from_job_code),
+                        class,
                     });
                 }
                 closed.extend(self.engine.handle(&ev, seg.ts_ms));
+                if let Some(own) = self.own.as_mut().filter(|o| o.class.is_none()) {
+                    own.class = self.engine.self_id().and_then(|id| self.engine.class_of(id));
+                }
             }
         }
         closed
