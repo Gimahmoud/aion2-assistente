@@ -49,6 +49,8 @@ pub struct Status {
     pub npcap_download: &'static str,
     pub stats: PipelineStats,
     pub dropped_segments: u64,
+    /// Personagem logado no jogo, se o app já viu o login.
+    pub own_character: Option<pipeline::OwnCharacter>,
 }
 
 pub struct Runtime {
@@ -268,6 +270,9 @@ impl Worker {
             let mut s = self.status.lock().unwrap();
             s.stats = self.pipeline.stats();
             s.dropped_segments = self.dropped.load(Ordering::Relaxed);
+            if let Some(own) = self.pipeline.own_character() {
+                s.own_character = Some(own.clone());
+            }
             s.clone()
         };
         let _ = self.app.emit("app:status", s);

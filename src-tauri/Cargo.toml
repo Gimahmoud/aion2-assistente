@@ -14,6 +14,9 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
+tauri-plugin-window-state = "2"
+# TLS do próprio Windows (SChannel), sem compilar biblioteca de criptografia.
+reqwest = { version = "0.13", default-features = false, features = ["json", "query", "native-tls", "charset", "http2"] }
 capture = { workspace = true, features = ["live"] }
 protocol.workspace = true
 combat.workspace = true

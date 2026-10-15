@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use capture::{FlowStats, FlowTable, Segment, ServerFilter};
-use combat::{EncounterSnapshot, Engine, EngineConfig};
+use combat::{Class, EncounterSnapshot, Engine, EngineConfig};
 use protocol::{Decoder, GameEvent, OpcodeTable};
 use serde::Serialize;
 
@@ -25,11 +25,20 @@ pub struct PipelineStats {
     pub opcode_table: String,
 }
 
+/// Personagem logado, lido do pacote que o servidor manda ao entrar no mundo.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct OwnCharacter {
+    pub name: String,
+    pub server: Option<u16>,
+    pub class: Option<Class>,
+}
+
 pub struct Pipeline {
     flows: FlowTable,
     decoder: Decoder,
     engine: Engine,
     events: HashMap<&'static str, u64>,
+    own: Option<OwnCharacter>,
 }
 
 impl Pipeline {
@@ -39,6 +48,7 @@ impl Pipeline {
             decoder: Decoder::new(table),
             engine: Engine::new(cfg),
             events: HashMap::new(),
+            own: None,
         }
     }
 
@@ -52,6 +62,16 @@ impl Pipeline {
         for msg in self.flows.push(seg) {
             for ev in self.decoder.decode(&msg) {
                 *self.events.entry(kind(&ev)).or_default() += 1;
+                if let GameEvent::OwnCharacter {
+                    name, server, job_code, ..
+                } = &ev
+                {
+                    self.own = Some(OwnCharacter {
+                        name: name.clone(),
+                        server: *server,
+                        class: job_code.and_then(Class::from_job_code),
+                    });
+                }
                 closed.extend(self.engine.handle(&ev, seg.ts_ms));
             }
         }
@@ -68,6 +88,11 @@ impl Pipeline {
 
     pub fn snapshot(&self) -> Option<EncounterSnapshot> {
         self.engine.snapshot()
+    }
+
+    /// Último personagem logado visto no tráfego.
+    pub fn own_character(&self) -> Option<&OwnCharacter> {
+        self.own.as_ref()
     }
 
     pub fn opcode_version(&self) -> &str {

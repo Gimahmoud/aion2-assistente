@@ -4,10 +4,23 @@ import { useEffect, useState } from "react";
 
 export type Period = "diario" | "semanal";
 
+export interface OfficialLink {
+  region: string;
+  server_id: string;
+  character_id: string;
+}
+
 export interface Character {
   id: number;
   name: string;
   class: string | null;
+  official: OfficialLink | null;
+}
+
+/** Cópia do perfil oficial: `json` é `{ info, equipment }` como veio da API. */
+export interface CachedProfile {
+  json: string;
+  fetched_at_ms: number;
 }
 
 export interface TaskStatus {
@@ -75,6 +88,12 @@ export const trackerApi = {
   setEventAlert: (eventId: string, enabled: boolean, leadMin: number) =>
     invoke<void>("set_event_alert", { eventId, enabled, leadMin }),
   testNotification: () => invoke<void>("test_notification"),
+  officialSearch: (region: string, name: string) =>
+    invoke<Record<string, unknown>[]>("official_search", { region, name }),
+  officialLink: (characterId: number, link: OfficialLink | null) =>
+    invoke<void>("official_link", { characterId, link }),
+  officialRefresh: (characterId: number) => invoke<CachedProfile>("official_refresh", { characterId }),
+  officialCached: (characterId: number) => invoke<CachedProfile | null>("official_cached", { characterId }),
 };
 
 /** Hora atual, atualizada a cada `everyMs`. */

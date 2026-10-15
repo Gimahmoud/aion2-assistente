@@ -71,6 +71,12 @@ pub fn set_recording(app: AppHandle, state: State<'_, AppState>, enabled: bool) 
 /// Overlay "atravessável": cliques passam para o jogo.
 #[tauri::command]
 pub fn set_overlay_click_through(app: AppHandle, enabled: bool) -> CmdResult<()> {
+    // Para mover, o overlay precisa estar visível.
+    if !enabled {
+        if let Some(w) = app.get_webview_window("overlay") {
+            w.show().map_err(|e| e.to_string())?;
+        }
+    }
     crate::set_click_through(&app, enabled).map_err(|e| e.to_string())
 }
 

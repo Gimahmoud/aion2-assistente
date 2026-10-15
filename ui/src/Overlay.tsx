@@ -17,16 +17,14 @@ export default function Overlay() {
 
   return (
     <div
+      // No modo de edição, arrastar em qualquer ponto move a janela.
+      onMouseDown={(e) => editing && e.button === 0 && getCurrentWindow().startDragging()}
       className={cn(
         "flex h-screen flex-col gap-1 rounded-md bg-black/55 p-1.5 text-white",
-        editing && "ring-primary ring-2",
+        editing && "ring-primary cursor-move ring-2 select-none",
       )}
     >
-      <div
-        data-tauri-drag-region
-        onMouseDown={() => editing && getCurrentWindow().startDragging()}
-        className={cn("flex items-center gap-2 px-1 text-xs", editing && "cursor-move")}
-      >
+      <div className="flex items-center gap-2 px-1 text-xs">
         {editing && <Move className="size-3" />}
         <span className="font-semibold">DPS</span>
         {shown && (
@@ -44,7 +42,7 @@ export default function Overlay() {
           <p className="px-1 text-xs opacity-70">Aguardando combate…</p>
         )}
       </div>
-      {editing && <p className="px-1 text-[10px] opacity-70">Arraste para mover. Ctrl+Shift+O para travar.</p>}
+      {editing && <p className="px-1 text-[10px] opacity-70">Arraste para mover e puxe a borda para redimensionar. Trave no botão do app ou com Ctrl+Shift+O.</p>}
     </div>
   );
 }

@@ -1,13 +1,15 @@
 import { Plus, Trash2, UserPlus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChecklistPanel } from "@/components/ChecklistPanel";
 import { PetsPanel } from "@/components/PetsPanel";
+import { ProfilePanel } from "@/components/ProfilePanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useStatus } from "@/lib/api";
 import { CLASS_NAMES } from "@/lib/format";
 import { trackerApi, type Character } from "@/lib/tracker";
 
@@ -94,6 +96,26 @@ export function CharactersTab() {
   }, []);
   useEffect(reload, [reload]);
 
+  // Personagem logado no jogo: entra na lista sozinho e fica selecionado.
+  const inGame = useStatus()?.own_character ?? null;
+  const handled = useRef<string | null>(null);
+  useEffect(() => {
+    if (!inGame || chars === null || handled.current === inGame.name) return;
+    handled.current = inGame.name;
+    const known = chars.find((c) => c.name.toLowerCase() === inGame.name.toLowerCase());
+    if (known) {
+      select(known.id);
+    } else {
+      trackerApi
+        .addCharacter(inGame.name, inGame.class)
+        .then((c) => {
+          select(c.id);
+          reload();
+        })
+        .catch(() => {});
+    }
+  }, [inGame, chars, reload]);
+
   const current = chars?.find((c) => c.id === selected) ?? chars?.[0] ?? null;
 
   function select(id: number) {
@@ -110,8 +132,9 @@ export function CharactersTab() {
         <CardHeader>
           <CardTitle>Adicione seu primeiro personagem</CardTitle>
           <CardDescription>
-            Cada personagem tem a própria lista de mascotes e de diárias e semanais. As contagens zeram sozinhas no
-            reset do servidor.
+            Entre no jogo com o app aberto e seu personagem aparece aqui sozinho. Se preferir, adicione à mão. Cada
+            personagem tem a própria lista de mascotes e de diárias e semanais, que zeram sozinhas no reset do
+            servidor.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,6 +172,7 @@ export function CharactersTab() {
                 <option key={c.id} value={c.id}>
                   {c.name}
                   {c.class ? ` (${CLASS_NAMES[c.class as keyof typeof CLASS_NAMES] ?? c.class})` : ""}
+                  {inGame && c.name.toLowerCase() === inGame.name.toLowerCase() ? " · no jogo" : ""}
                 </option>
               ))}
             </NativeSelect>
@@ -178,11 +202,15 @@ export function CharactersTab() {
       </div>
 
       {current && (
-        <Tabs defaultValue="checklist">
+        <Tabs defaultValue="profile">
           <TabsList>
+            <TabsTrigger value="profile">Perfil</TabsTrigger>
             <TabsTrigger value="checklist">Diárias e semanais</TabsTrigger>
             <TabsTrigger value="pets">Mascotes</TabsTrigger>
           </TabsList>
+          <TabsContent value="profile">
+            <ProfilePanel character={current} onChanged={reload} />
+          </TabsContent>
           <TabsContent value="checklist">
             <ChecklistPanel characterId={current.id} />
           </TabsContent>

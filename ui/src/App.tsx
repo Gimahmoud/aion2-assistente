@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { Activity, CalendarClock, FileUp, History, PanelTop, RotateCcw, Stethoscope, Users } from "lucide-react";
+import { Activity, CalendarClock, FileUp, History, Lock, Move, PanelTop, RotateCcw, Stethoscope, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { CharactersTab } from "@/components/CharactersTab";
@@ -33,6 +33,7 @@ export default function App() {
   const [accepted, setAccepted] = useState(readDisclaimer);
 
   const [lastSaved, setLastSaved] = useState<EncounterSnapshot | null>(null);
+  const overlayLocked = useEvent<boolean>("overlay:click_through", true);
 
   useEffect(() => setRecording(!!status?.recording), [status?.recording]);
 
@@ -109,6 +110,21 @@ export default function App() {
         </Button>
         <Button variant="outline" size="sm" onClick={() => api.toggleOverlay()}>
           <PanelTop /> Overlay
+        </Button>
+        <Button
+          variant={overlayLocked ? "outline" : "secondary"}
+          size="sm"
+          onClick={() => api.setOverlayClickThrough(!overlayLocked)}
+        >
+          {overlayLocked ? (
+            <>
+              <Move /> Mover overlay
+            </>
+          ) : (
+            <>
+              <Lock /> Travar overlay
+            </>
+          )}
         </Button>
         <Button size="sm" onClick={() => api.resetEncounter()}>
           <RotateCcw /> Nova luta
