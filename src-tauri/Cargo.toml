@@ -16,6 +16,8 @@ tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-single-instance = "2"
+# TLS do Windows, como o reqwest abaixo; o instalador NSIS chega sem zip.
+tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls", "system-proxy"] }
 # TLS do próprio Windows (SChannel), sem compilar biblioteca de criptografia.
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "native-tls", "charset", "http2"] }
 capture = { workspace = true, features = ["live"] }

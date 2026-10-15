@@ -8,6 +8,7 @@ import { EncounterDetail } from "@/components/EncounterDetail";
 import { EventsTab } from "@/components/EventsTab";
 import { HistoryTab } from "@/components/HistoryTab";
 import { StatusBanner } from "@/components/StatusBanner";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -131,6 +132,7 @@ export default function App() {
         </Button>
       </header>
 
+      <UpdateBanner />
       <StatusBanner status={status} />
 
       <Tabs defaultValue="meter">
