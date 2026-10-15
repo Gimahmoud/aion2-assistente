@@ -60,7 +60,7 @@ pub struct Runtime {
 
 struct LiveCapture {
     stop: Arc<AtomicBool>,
-    servers: HashSet<SocketAddrV4>,
+    ports: HashSet<u16>,
 }
 
 impl Drop for LiveCapture {
@@ -92,7 +92,7 @@ struct Worker {
     live: Option<LiveCapture>,
     seg_tx: Sender<Segment>,
     seg_rx: Receiver<Segment>,
-    record_to: Option<PathBuf>,
+    recording: Option<live::Recording>,
     dropped: Arc<AtomicU64>,
 }
 
@@ -110,7 +110,7 @@ impl Worker {
             live: None,
             seg_tx,
             seg_rx,
-            record_to: None,
+            recording: None,
             dropped: Default::default(),
         }
     }
@@ -135,7 +135,7 @@ impl Worker {
                     }
                     Ok(Command::Replay(path)) => self.replay(path),
                     Ok(Command::SetRecording(path)) => {
-                        self.record_to = path;
+                        self.recording = path.map(live::Recording::new);
                         // Reabre a captura para começar/parar a gravação.
                         self.live = None;
                         self.discover();
@@ -181,7 +181,11 @@ impl Worker {
             return;
         }
         let servers: HashSet<SocketAddrV4> = conns.iter().map(|c| c.remote).collect();
-        if self.live.as_ref().is_some_and(|l| l.servers == servers) {
+        let ports = discover::server_ports(&servers);
+        self.status.lock().unwrap().servers = servers.iter().map(|s| s.to_string()).collect();
+        // A captura filtra pela porta: servidor novo na mesma porta já está
+        // sendo capturado, não precisa reabrir.
+        if self.live.as_ref().is_some_and(|l| l.ports == ports) {
             return;
         }
         self.live = None;
@@ -190,26 +194,25 @@ impl Worker {
             let stop = Arc::new(AtomicBool::new(false));
             let cfg = live::LiveConfig {
                 device: device.clone(),
-                bpf: discover::bpf_for(&servers),
-                record_to: self.record_to.clone(),
+                bpf: discover::bpf_for(&ports),
+                recording: self.recording.clone(),
             };
             live::spawn(cfg, self.seg_tx.clone(), stop.clone(), self.dropped.clone())?;
             Ok((device, stop))
         });
         match result {
             Ok((device, stop)) => {
-                self.pipeline.set_filter(ServerFilter::Endpoints(servers.clone()));
+                self.pipeline.set_filter(ServerFilter::Ports(ports.clone()));
                 {
                     let mut s = self.status.lock().unwrap();
                     s.device = Some(device);
-                    s.servers = servers.iter().map(|s| s.to_string()).collect();
-                    s.recording = self.record_to.as_ref().map(|p| p.display().to_string());
+                    s.recording = self.recording.as_ref().map(|r| r.path.display().to_string());
                 }
                 self.set_state(
                     CaptureState::Capturing,
                     "Capturando o tráfego do jogo (somente leitura).",
                 );
-                self.live = Some(LiveCapture { stop, servers });
+                self.live = Some(LiveCapture { stop, ports });
             }
             Err(e) => self.set_state(CaptureState::Error, &e.to_string()),
         }

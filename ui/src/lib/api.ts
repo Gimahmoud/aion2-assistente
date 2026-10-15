@@ -10,6 +10,7 @@ export const api = {
   listEncounters: (limit = 100) => invoke<EncounterRow[]>("list_encounters", { limit }),
   getEncounter: (id: number) => invoke<EncounterSnapshot | null>("get_encounter", { id }),
   replayFile: (path: string) => invoke<void>("replay_file", { path }),
+  recordingsDir: () => invoke<string>("recordings_dir"),
   setRecording: (enabled: boolean) => invoke<string | null>("set_recording", { enabled }),
   setOverlayClickThrough: (enabled: boolean) => invoke<void>("set_overlay_click_through", { enabled }),
   toggleOverlay: () => invoke<boolean>("toggle_overlay"),

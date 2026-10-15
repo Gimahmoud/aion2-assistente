@@ -14,6 +14,9 @@ pub enum ServerFilter {
     /// Endereços conhecidos (descobertos pela tabela de conexões do Windows
     /// ou configurados à mão).
     Endpoints(HashSet<SocketAddrV4>),
+    /// Qualquer servidor nestas portas. Pega conexões novas (ao entrar no
+    /// personagem) antes de a tabela de conexões as mostrar.
+    Ports(HashSet<u16>),
     /// Sem informação: assume que o lado com a porta menor é o servidor.
     #[default]
     LowerPort,
@@ -23,6 +26,7 @@ impl ServerFilter {
     fn is_from_server(&self, s: &Segment) -> bool {
         match self {
             Self::Endpoints(set) => set.contains(&s.src),
+            Self::Ports(set) => set.contains(&s.src.port()),
             Self::LowerPort => s.src.port() < s.dst.port(),
         }
     }
@@ -139,6 +143,14 @@ mod tests {
         let f = build_frame(None, &[0x04, 0x38, 1, 2, 3]);
         assert_eq!(t.push(&seg("1.1.1.1:13328", "2.2.2.2:50000", 10, f.clone())).len(), 1);
         assert!(t.push(&seg("2.2.2.2:50000", "1.1.1.1:13328", 10, f)).is_empty());
+    }
+
+    #[test]
+    fn port_filter_accepts_new_server_on_same_port() {
+        let mut t = FlowTable::new(ServerFilter::Ports(HashSet::from([13328])));
+        let f = build_frame(None, &[0x04, 0x38, 1, 2, 3]);
+        assert_eq!(t.push(&seg("9.9.9.9:13328", "2.2.2.2:50001", 10, f.clone())).len(), 1);
+        assert!(t.push(&seg("9.9.9.9:443", "2.2.2.2:50002", 10, f)).is_empty());
     }
 
     #[test]

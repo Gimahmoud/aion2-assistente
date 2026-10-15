@@ -157,6 +157,7 @@ fn main() {
             commands::get_encounter,
             commands::replay_file,
             commands::set_recording,
+            commands::recordings_dir,
             commands::set_overlay_click_through,
             commands::toggle_overlay,
             tracker_cmds::list_characters,

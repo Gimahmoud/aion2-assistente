@@ -6,7 +6,7 @@
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -63,10 +63,28 @@ pub fn device_for_ip(ip: Ipv4Addr) -> Result<String, LiveError> {
         .ok_or(LiveError::NoDevice(ip))
 }
 
+/// Gravação em andamento. É compartilhada entre as capturas: quando a
+/// captura reabre (o jogo trocou de servidor), continua no mesmo arquivo em
+/// vez de recomeçá-lo.
+#[derive(Clone)]
+pub struct Recording {
+    pub path: PathBuf,
+    file: Arc<Mutex<Option<Recorder>>>,
+}
+
+impl Recording {
+    pub fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            file: Arc::default(),
+        }
+    }
+}
+
 pub struct LiveConfig {
     pub device: String,
     pub bpf: String,
-    pub record_to: Option<PathBuf>,
+    pub recording: Option<Recording>,
 }
 
 /// Inicia a captura numa thread própria. Para quando `stop` vira `true` ou
@@ -92,8 +110,15 @@ pub fn spawn(
         Linktype(12) | Linktype(101) => LinkType::RawIp,
         other => return Err(LiveError::UnsupportedLink(other)),
     };
-    let mut recorder = match &cfg.record_to {
-        Some(p) => Some(Recorder::create(p, link)?),
+    let recording = match cfg.recording {
+        Some(rec) => {
+            let mut file = rec.file.lock().unwrap();
+            if file.is_none() {
+                *file = Some(Recorder::create(&rec.path, link)?);
+            }
+            drop(file);
+            Some(rec)
+        }
         None => None,
     };
 
@@ -104,10 +129,13 @@ pub fn spawn(
                 match cap.next_packet() {
                     Ok(pkt) => {
                         let ts = now_ms();
-                        if let Some(r) = recorder.as_mut() {
-                            if let Err(e) = r.write(ts, pkt.data) {
-                                tracing::warn!("falha ao gravar pcap: {e}");
-                                recorder = None;
+                        if let Some(rec) = &recording {
+                            let mut file = rec.file.lock().unwrap();
+                            if let Some(r) = file.as_mut() {
+                                if let Err(e) = r.write(ts, pkt.data) {
+                                    tracing::warn!("falha ao gravar pcap: {e}");
+                                    *file = None;
+                                }
                             }
                         }
                         if let Some(seg) = parse_frame(link, pkt.data, ts) {
