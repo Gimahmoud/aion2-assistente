@@ -111,6 +111,8 @@ pub struct Engine {
     mob_code: HashMap<EntityId, u32>,
     mob_hp: HashMap<EntityId, u32>,
     self_id: Option<EntityId>,
+    /// Nome do próprio personagem, para dar nome à entidade de `SelfEntity`.
+    own_name: Option<String>,
     current: Option<Encounter>,
     next_id: u64,
     ignored_damage: u64,
@@ -134,7 +136,15 @@ impl Engine {
                 entity, name, job_code, ..
             } => {
                 self.self_id = Some(*entity);
+                self.own_name = Some(name.clone());
                 self.set_player(*entity, name, *job_code);
+            }
+            GameEvent::SelfEntity { entity } => {
+                self.self_id = Some(*entity);
+                let named = self.entities.get(entity).is_some_and(|e| e.name.is_some());
+                if let Some(name) = self.own_name.clone().filter(|_| !named) {
+                    self.set_player(*entity, &name, None);
+                }
             }
             GameEvent::OtherCharacter { entity, name, job_code } => self.set_player(*entity, name, *job_code),
             GameEvent::MobSpawn { entity, mob_code } => {
@@ -185,6 +195,12 @@ impl Engine {
     /// jogador ou alvo jogador). Aparece no Diagnóstico.
     pub fn ignored_damage(&self) -> u64 {
         self.ignored_damage
+    }
+
+    /// Nome do personagem da última sessão, usado até o jogo mandar o nome
+    /// de novo (o app pode abrir com o jogo já em andamento).
+    pub fn remember_own_name(&mut self, name: &str) {
+        self.own_name = Some(name.to_owned());
     }
 
     pub fn self_id(&self) -> Option<EntityId> {
@@ -368,6 +384,17 @@ mod tests {
             },
             0,
         );
+    }
+
+    #[test]
+    fn self_entity_gets_remembered_name() {
+        let mut e = Engine::new(EngineConfig::default());
+        e.remember_own_name("Eu");
+        e.handle(&GameEvent::SelfEntity { entity: 9 }, 0);
+        e.handle(&hit(9, 100, 14_340_130, 500), 1_000);
+        let s = e.snapshot().unwrap();
+        assert_eq!(s.actors[0].name, "Eu");
+        assert!(s.actors[0].is_self);
     }
 
     #[test]

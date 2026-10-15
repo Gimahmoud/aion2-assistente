@@ -94,6 +94,9 @@ struct Worker {
     seg_rx: Receiver<Segment>,
     recording: Option<live::Recording>,
     dropped: Arc<AtomicU64>,
+    /// Personagem da última sessão, salvo no banco. Dá nome ao usuário quando
+    /// o app abre com o jogo já em andamento.
+    saved_own: Option<pipeline::OwnCharacter>,
 }
 
 impl Worker {
@@ -101,17 +104,25 @@ impl Worker {
         // Canal limitado: se o motor atrasar, a captura descarta em vez de
         // acumular memória sem fim.
         let (seg_tx, seg_rx) = bounded(20_000);
+        let saved_own = store
+            .lock()
+            .unwrap()
+            .get_setting(OWN_CHARACTER_KEY)
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok());
         Self {
             app,
             store,
             status,
             npcap_ok,
-            pipeline: new_pipeline(ServerFilter::LowerPort),
+            pipeline: live_pipeline(saved_own.as_ref()),
             live: None,
             seg_tx,
             seg_rx,
             recording: None,
             dropped: Default::default(),
+            saved_own,
         }
     }
 
@@ -147,7 +158,10 @@ impl Worker {
                     self.save(closed);
                     self.emit_snapshot();
                 }
-                recv(status_tick) -> _ => self.emit_status(),
+                recv(status_tick) -> _ => {
+                    self.save_own_character();
+                    self.emit_status();
+                }
                 recv(discover_tick) -> _ => self.discover(),
             }
         }
@@ -239,8 +253,23 @@ impl Worker {
             }
             Err(e) => self.set_state(CaptureState::Error, &e.to_string()),
         }
-        self.pipeline = new_pipeline(ServerFilter::LowerPort);
+        self.pipeline = live_pipeline(self.saved_own.as_ref());
         self.discover();
+    }
+
+    /// Guarda o personagem visto na captura ao vivo (não no replay).
+    fn save_own_character(&mut self) {
+        let Some(own) = self.pipeline.own_character().filter(|_| self.live.is_some()) else {
+            return;
+        };
+        if self.saved_own.as_ref() == Some(own) {
+            return;
+        }
+        let json = serde_json::to_string(own).unwrap_or_default();
+        match self.store.lock().unwrap().set_setting(OWN_CHARACTER_KEY, &json) {
+            Ok(()) => self.saved_own = Some(own.clone()),
+            Err(e) => tracing::error!("falha ao salvar o personagem: {e}"),
+        }
     }
 
     fn save(&self, closed: impl IntoIterator<Item = EncounterSnapshot>) {
@@ -291,8 +320,18 @@ impl Worker {
     }
 }
 
+const OWN_CHARACTER_KEY: &str = "own_character";
+
 fn new_pipeline(filter: ServerFilter) -> Pipeline {
     Pipeline::new(OpcodeTable::default(), filter, EngineConfig::default())
+}
+
+fn live_pipeline(own: Option<&pipeline::OwnCharacter>) -> Pipeline {
+    let mut p = new_pipeline(ServerFilter::LowerPort);
+    if let Some(own) = own {
+        p.remember_own(own.clone());
+    }
+    p
 }
 
 pub fn now_ms() -> u64 {

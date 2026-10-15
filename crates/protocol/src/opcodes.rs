@@ -31,6 +31,11 @@ pub struct OpcodeTable {
     /// servidor global (SA, 10/2026).
     #[serde(default)]
     pub party_info: Option<Op>,
+    /// Pacote frequente que só fala do próprio personagem (começa com a
+    /// entidade dele). Revela quem é o usuário mesmo quando o app abre com o
+    /// jogo já em andamento. Visto no servidor global (SA, 10/2026).
+    #[serde(default)]
+    pub self_status: Option<Op>,
 }
 
 impl OpcodeTable {
@@ -48,6 +53,7 @@ impl OpcodeTable {
             remain_hp: Op(0x00, 0x8d),
             kill_credit: Some(Op(0x04, 0x8d)),
             party_info: Some(Op(0x00, 0x92)),
+            self_status: Some(Op(0x4a, 0x36)),
         }
     }
 

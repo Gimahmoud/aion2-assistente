@@ -1,10 +1,11 @@
 //! Processa um .pcap gravado e imprime as lutas encontradas.
 //!
-//! Uso: `cargo run -p pipeline --bin replay -- gravacao.pcap [--json]`
+//! Uso: `cargo run -p pipeline --bin replay -- gravacao.pcap [--json] [--eu=Nome]`
+//! `--eu` simula o nome salvo da sessão anterior, como o app faz ao abrir.
 
 use capture::{replay, ServerFilter};
 use combat::{EncounterSnapshot, EngineConfig};
-use pipeline::Pipeline;
+use pipeline::{OwnCharacter, Pipeline};
 use protocol::OpcodeTable;
 
 fn main() {
@@ -23,6 +24,13 @@ fn main() {
         }
     };
     let mut p = Pipeline::new(OpcodeTable::default(), ServerFilter::LowerPort, EngineConfig::default());
+    if let Some(name) = args.iter().find_map(|a| a.strip_prefix("--eu=")) {
+        p.remember_own(OwnCharacter {
+            name: name.to_owned(),
+            server: None,
+            class: None,
+        });
+    }
     let mut fights: Vec<EncounterSnapshot> = Vec::new();
     for s in &segs {
         fights.extend(p.push_segment(s));
@@ -48,12 +56,13 @@ fn main() {
         );
         for a in &f.actors {
             println!(
-                "  {:<16} {:>12} dano  {:>10.0} DPS  {:>5.1}%  {:?}",
+                "  {:<16} {:>12} dano  {:>10.0} DPS  {:>5.1}%  {:?}{}",
                 a.name,
                 a.damage,
                 a.dps,
                 a.share * 100.0,
-                a.class
+                a.class,
+                if a.is_self { "  (eu)" } else { "" }
             );
         }
     }
