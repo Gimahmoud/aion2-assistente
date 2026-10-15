@@ -76,4 +76,5 @@ export interface Status {
   npcap_download: string;
   stats: PipelineStats;
   dropped_segments: number;
+  own_character: { name: string; server: number | null; class: ClassId | null } | null;
 }
