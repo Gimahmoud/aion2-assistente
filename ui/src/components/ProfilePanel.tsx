@@ -1,11 +1,10 @@
-import { Copy, ExternalLink, Link2Off, RefreshCw, Search } from "lucide-react";
+import { Copy, ExternalLink, Link2Off, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { OfficialSearch } from "@/components/OfficialSearch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { fmtDateTime, fmtNumber } from "@/lib/format";
 import {
   findLists,
@@ -13,6 +12,7 @@ import {
   itemDetails,
   itemIcon,
   itemLabel,
+  LABEL_KEYS,
   pick,
   sectionName,
   text,
@@ -20,109 +20,61 @@ import {
   type Json,
   type Obj,
 } from "@/lib/profile";
+import { linkHit } from "@/lib/official";
 import { trackerApi, type CachedProfile, type Character } from "@/lib/tracker";
 
-// Códigos de região da API global. "la" é o usado para a América do Sul nos
-// sites que leem a mesma API; se a busca não achar, tente os outros.
-const REGIONS: [string, string][] = [
-  ["la", "América do Sul"],
-  ["nae", "América do Norte (Leste)"],
-  ["naw", "América do Norte (Oeste)"],
-  ["eu", "Europa"],
-  ["as", "Ásia"],
-];
-
 function LinkForm({ character, onLinked }: { character: Character; onLinked: () => void }) {
-  const [region, setRegion] = useState("la");
-  const [name, setName] = useState(character.name);
-  const [results, setResults] = useState<Obj[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      setResults((await trackerApi.officialSearch(region, name)).filter(isObj) as Obj[]);
-    } catch (err) {
-      setError(String(err));
-      setResults(null);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function choose(r: Obj) {
-    const characterId = text(pick(r, ["characterId", "charId", "id"]));
-    const serverId = text(pick(r, ["serverId", "server_id"]));
-    if (!characterId || !serverId) {
-      setError("A busca não trouxe o identificador do personagem. Use \"Copiar dados\" e mande no chat.");
-      return;
-    }
-    let id = characterId;
-    try {
-      id = decodeURIComponent(characterId);
-    } catch {
-      /* já estava decodificado */
-    }
-    await trackerApi.officialLink(character.id, {
-      region: text(pick(r, ["region"])) ?? region,
-      server_id: serverId,
-      character_id: id,
-    });
-    await trackerApi.officialRefresh(character.id).catch(() => {});
-    onLinked();
-  }
-
   return (
     <Card className="gap-3">
       <CardHeader>
         <CardTitle>Perfil oficial</CardTitle>
         <CardDescription>
-          Ache {character.name} no site oficial do Aion 2 para ver nível, poder de combate, atributos, equipamentos e o
-          resto do perfil aqui no app.
+          Procurando {character.name} no site oficial do Aion 2 para mostrar nível, poder de combate, atributos,
+          equipamentos, mascote e o resto do perfil aqui no app. Se aparecer mais de um, escolha o seu.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <form onSubmit={search} className="flex flex-wrap items-center gap-2">
-          <NativeSelect value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Região">
-            {REGIONS.map(([id, label]) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </NativeSelect>
-          <Input className="w-56" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome" />
-          <Button type="submit" size="sm" disabled={busy || !name.trim()}>
-            <Search /> Buscar
-          </Button>
-        </form>
-        {error && <p className="text-destructive text-sm">{error}</p>}
-        {results && results.length === 0 && (
-          <p className="text-muted-foreground text-sm">Ninguém com esse nome nesta região. Tente outra região.</p>
-        )}
-        {results && results.length > 0 && (
-          <ul className="divide-y">
-            {results.map((r, i) => {
-              const level = text(pick(r, ["level", "characterLevel"]));
-              const cls = text(pick(r, ["className", "jobName", "classNameText"]));
-              const server = text(pick(r, ["serverName", "server"]));
-              const race = text(pick(r, ["raceName", "race"]));
-              return (
-                <li key={i} className="flex items-center gap-3 py-1.5 text-sm">
-                  <span className="font-medium">{text(pick(r, ["name", "characterName"])) ?? "?"}</span>
-                  <span className="text-muted-foreground flex-1">
-                    {[server, race, cls, level && `nv. ${level}`].filter(Boolean).join(" · ")}
-                  </span>
-                  <Button size="sm" variant="outline" onClick={() => choose(r)}>
-                    É este
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+      <CardContent>
+        <OfficialSearch
+          initialName={character.name}
+          autoSearch
+          autoPick={(hits) => {
+            const same = hits.filter((h) => h.name.toLowerCase() === character.name.toLowerCase());
+            return same.length === 1 ? same[0] : undefined;
+          }}
+          chooseLabel="É este"
+          onChoose={async (hit) => {
+            await linkHit(character, hit);
+            onLinked();
+          }}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function Companions({ equipment }: { equipment: Obj }) {
+  const pw = pick(equipment, ["petwing", "petWing"]);
+  if (!isObj(pw)) return null;
+  const items = [
+    ["Mascote", pick(pw, ["pet"])],
+    ["Asas", pick(pw, ["wing"])],
+  ].filter(([, v]) => isObj(v) && text(pick(v, LABEL_KEYS))) as [string, Obj][];
+  if (items.length === 0) return null;
+  return (
+    <Card className="gap-2">
+      <CardHeader>
+        <CardTitle className="text-base">Mascote e asas equipados</CardTitle>
+        <CardDescription>
+          O site oficial só mostra o mascote equipado. Ele é marcado sozinho como obtido na aba Mascotes.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-1.5">
+        {items.map(([label, it]) => (
+          <div key={label} className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground w-16">{label}</span>
+            <ItemList items={[it]} />
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
@@ -262,6 +214,7 @@ function ProfileView({ cached }: { cached: CachedProfile }) {
         </CardContent>
       </Card>
       {statKey && <Stats value={info[statKey]} />}
+      <Companions equipment={equipment} />
       {Object.keys(equipment).length > 0 && <Section title="Equipamentos" value={equipment} />}
       {others.map(([k, v]) => (
         <Section key={k} title={sectionName(k)} value={v} />

@@ -170,6 +170,23 @@ impl Tracker {
         self.store.set_pet_owned(character_id, pet_id, owned, now_ms)
     }
 
+    /// Marca como obtido o mascote com este nome (sem diferenciar maiúsculas).
+    /// Se ele não estiver no catálogo, entra como mascote próprio.
+    pub fn mark_pet_owned_by_name(&self, character_id: i64, nome: &str, origem: &str, now_ms: i64) -> Result<String> {
+        let key = nome.trim().to_lowercase();
+        let found = self
+            .all_pets()?
+            .into_iter()
+            .find(|(p, _)| p.nome.trim().to_lowercase() == key)
+            .map(|(p, _)| p.id);
+        let id = match found {
+            Some(id) => id,
+            None => self.add_custom_pet(nome, "Outros", origem)?,
+        };
+        self.store.set_pet_owned(character_id, &id, true, now_ms)?;
+        Ok(id)
+    }
+
     pub fn add_custom_pet(&self, nome: &str, grupo: &str, origem: &str) -> Result<String> {
         if nome.trim().is_empty() {
             return Err(invalid("o nome do mascote está vazio"));
@@ -341,6 +358,28 @@ mod tests {
 
     fn tracker() -> Tracker {
         Tracker::new(Catalog::bundled(), TrackerStore::open_in_memory().unwrap())
+    }
+
+    #[test]
+    fn pet_marked_by_name_from_catalog_or_custom() {
+        let t = tracker();
+        let c = t.add_character("Eu", None, 0).unwrap();
+        assert_eq!(t.mark_pet_owned_by_name(c.id, " papis ", "perfil", 1).unwrap(), "papis");
+        let novo = t.mark_pet_owned_by_name(c.id, "Mascote Novo", "perfil", 1).unwrap();
+        // Segunda vez reaproveita o mesmo mascote próprio.
+        assert_eq!(
+            t.mark_pet_owned_by_name(c.id, "mascote novo", "perfil", 2).unwrap(),
+            novo
+        );
+        let owned: Vec<_> = t
+            .pets(c.id)
+            .unwrap()
+            .into_iter()
+            .filter(|p| p.owned)
+            .map(|p| p.def.id)
+            .collect();
+        assert_eq!(owned.len(), 2);
+        assert!(owned.contains(&"papis".to_string()) && owned.contains(&novo));
     }
 
     #[test]

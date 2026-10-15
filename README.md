@@ -29,10 +29,11 @@ Atalhos: **Ctrl+Shift+R** começa uma nova luta, **Ctrl+Shift+O** destrava o ove
 
 ### Personagens: mascotes, diárias e semanais
 
-Na aba **Personagens**, adicione cada personagem seu. Para cada um:
+Na aba **Personagens**, digite o nome do personagem e clique em **Buscar**: o app procura no site oficial do Aion 2, em todas as regiões, e abre o perfil. Entrar no jogo com o app aberto também traz seu personagem sozinho. Para cada um:
 
+- **Perfil**: nível, poder de combate, atributos, equipamentos, mascote e asas equipados, direto do site oficial. Clique em **Atualizar do site oficial** para baixar de novo.
 - **Diárias e semanais**: marque o que já fez. Tarefas com limite (por exemplo 5 Missões de dever) têm um contador. Tudo zera sozinho no reset do servidor, e o app mostra quanto falta para o próximo. O selo **servidor** indica que o limite é dividido entre os personagens do mesmo servidor. Dá para criar tarefas suas no fim da página.
-- **Mascotes**: marque os que você já tem e use o filtro **Faltando** para ver o que ainda falta. A lista que vem com o app ainda é parcial; adicione os que faltarem pelo formulário no fim da página.
+- **Mascotes**: marque os que você já tem e use o filtro **Faltando** para ver o que ainda falta. O mascote equipado no perfil oficial é marcado sozinho; o site oficial não mostra a coleção inteira, então os outros você marca. A lista que vem com o app ainda é parcial; adicione os que faltarem pelo formulário no fim da página.
 
 ### Eventos e alertas
 

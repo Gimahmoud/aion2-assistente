@@ -1,7 +1,8 @@
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import { Plus, Search, Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChecklistPanel } from "@/components/ChecklistPanel";
+import { OfficialSearch } from "@/components/OfficialSearch";
 import { PetsPanel } from "@/components/PetsPanel";
 import { ProfilePanel } from "@/components/ProfilePanel";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStatus } from "@/lib/api";
 import { CLASS_NAMES } from "@/lib/format";
+import { openHit } from "@/lib/official";
 import { trackerApi, type Character } from "@/lib/tracker";
 
 const SELECTED_KEY = "personagem-selecionado";
@@ -86,6 +88,8 @@ export function CharactersTab() {
   const [chars, setChars] = useState<Character[] | null>(null);
   const [selected, setSelected] = useState<number | null>(readSelected);
   const [adding, setAdding] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [tab, setTab] = useState("profile");
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   const reload = useCallback(() => {
@@ -118,6 +122,15 @@ export function CharactersTab() {
 
   const current = chars?.find((c) => c.id === selected) ?? chars?.[0] ?? null;
 
+  // Busca direta: abre o personagem do resultado, criando-o se precisar.
+  async function openFromSearch(hit: Parameters<typeof openHit>[1]) {
+    const c = await openHit(chars ?? [], hit);
+    setSearching(false);
+    select(c.id);
+    setTab("profile");
+    reload();
+  }
+
   function select(id: number) {
     setSelected(id);
     writeSelected(id);
@@ -130,20 +143,29 @@ export function CharactersTab() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Adicione seu primeiro personagem</CardTitle>
+          <CardTitle>Ache seu personagem</CardTitle>
           <CardDescription>
-            Entre no jogo com o app aberto e seu personagem aparece aqui sozinho. Se preferir, adicione à mão. Cada
-            personagem tem a própria lista de mascotes e de diárias e semanais, que zeram sozinhas no reset do
-            servidor.
+            Digite o nome e o app busca o perfil no site oficial do Aion 2. Entrar no jogo com o app aberto também
+            traz seu personagem sozinho. Cada personagem tem a própria lista de mascotes e de diárias e semanais, que
+            zeram sozinhas no reset do servidor.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <NewCharacterForm
-            onCreated={(c) => {
-              select(c.id);
-              reload();
-            }}
-          />
+        <CardContent className="flex flex-col gap-4">
+          <OfficialSearch onChoose={openFromSearch} />
+          {adding ? (
+            <NewCharacterForm
+              onCreated={(c) => {
+                setAdding(false);
+                select(c.id);
+                reload();
+              }}
+              onCancel={() => setAdding(false)}
+            />
+          ) : (
+            <Button variant="link" size="sm" className="self-start px-0" onClick={() => setAdding(true)}>
+              Prefiro adicionar à mão
+            </Button>
+          )}
         </CardContent>
       </Card>
     );
@@ -176,8 +198,11 @@ export function CharactersTab() {
                 </option>
               ))}
             </NativeSelect>
-            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
-              <UserPlus /> Novo personagem
+            <Button variant="outline" size="sm" onClick={() => setSearching((v) => !v)}>
+              <Search /> Buscar personagem
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setAdding(true)} title="Adicionar sem o site oficial">
+              <UserPlus /> Adicionar à mão
             </Button>
             {current &&
               (confirmRemove ? (
@@ -201,8 +226,16 @@ export function CharactersTab() {
         )}
       </div>
 
+      {searching && !adding && (
+        <Card className="gap-3">
+          <CardContent>
+            <OfficialSearch onChoose={openFromSearch} />
+          </CardContent>
+        </Card>
+      )}
+
       {current && (
-        <Tabs defaultValue="profile">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="profile">Perfil</TabsTrigger>
             <TabsTrigger value="checklist">Diárias e semanais</TabsTrigger>
