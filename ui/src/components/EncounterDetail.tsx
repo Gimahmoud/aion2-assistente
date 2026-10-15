@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { className_, fmtCompact, fmtDuration, fmtNumber, fmtPercent } from "@/lib/format";
+import { groupSkills } from "@/lib/skills";
 import type { EncounterSnapshot } from "@/lib/types";
 
 /** Luta completa: barras por jogador e, ao clicar, o detalhe por skill. */
@@ -58,10 +59,11 @@ export function EncounterDetail({ encounter }: { encounter: EncounterSnapshot })
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {actor.skills.map((s) => (
-                  <TableRow key={s.skill}>
-                    <TableCell className="font-mono text-xs">
-                      {s.skill}
+                {groupSkills(actor.skills).map((s) => (
+                  <TableRow key={`${s.family}:${s.dot}`}>
+                    <TableCell>
+                      {s.name}
+                      <span className="text-muted-foreground ml-2 font-mono text-xs">{s.family}</span>
                       {s.dot && (
                         <Badge variant="outline" className="ml-2">
                           DoT
