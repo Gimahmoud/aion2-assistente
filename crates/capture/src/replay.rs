@@ -29,12 +29,19 @@ pub fn link_from_datalink(d: DataLink) -> Result<LinkType, ReplayError> {
 }
 
 /// Lê todos os segmentos TCP/IPv4 de um .pcap, na ordem do arquivo.
+///
+/// Uma gravação copiada enquanto o app ainda grava termina com um pacote
+/// pela metade: nesse caso fica tudo o que veio antes dele.
 pub fn read_segments(path: &Path) -> Result<Vec<Segment>, ReplayError> {
     let mut reader = PcapReader::new(BufReader::new(File::open(path)?))?;
     let link = link_from_datalink(reader.header().datalink)?;
     let mut out = Vec::new();
     while let Some(pkt) = reader.next_packet() {
-        let pkt = pkt?;
+        let pkt = match pkt {
+            Ok(p) => p,
+            Err(_) if !out.is_empty() => break,
+            Err(e) => return Err(e.into()),
+        };
         let ts = pkt.timestamp.as_millis() as u64;
         if let Some(s) = parse_frame(link, &pkt.data, ts) {
             out.push(s);

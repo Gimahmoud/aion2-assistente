@@ -114,19 +114,6 @@ pub struct Engine {
     current: Option<Encounter>,
     next_id: u64,
     ignored_damage: u64,
-    /// Danos ainda não conferidos com a vida do alvo, por alvo.
-    pending: HashMap<EntityId, Vec<PendingHit>>,
-    /// Quanto a vida do monstro cai por ponto de dano do pacote, por
-    /// atacante. Ver [`Engine::on_hp`].
-    hp_ratio: HashMap<EntityId, f64>,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct PendingHit {
-    actor: EntityId,
-    skill: u32,
-    raw: u64,
-    credited: u64,
 }
 
 impl Engine {
@@ -156,7 +143,9 @@ impl Engine {
             GameEvent::SummonOwner { summon, owner } => {
                 self.summon_owner.insert(*summon, *owner);
             }
-            GameEvent::MobHp { entity, hp } => self.on_hp(*entity, *hp),
+            GameEvent::MobHp { entity, hp } => {
+                self.mob_hp.insert(*entity, *hp);
+            }
             GameEvent::BattleToggle {
                 entity,
                 in_battle: false,
@@ -208,7 +197,6 @@ impl Engine {
     }
 
     fn close(&mut self) -> Option<EncounterSnapshot> {
-        self.pending.clear();
         let e = self.current.take()?;
         Some(self.build(&e, false))
     }
@@ -266,74 +254,20 @@ impl Engine {
         });
         enc.last_ms = enc.last_ms.max(ts);
 
-        let raw = u64::from(d.damage);
-        let ratio = self.hp_ratio.get(&actor).copied().unwrap_or(1.0);
-        let total = (raw as f64 * ratio).round() as u64;
+        let hits = 1;
+        let total = u64::from(d.damage);
         let a = enc.actors.entry(actor).or_default();
         a.damage += total;
-        a.hits += 1;
-        a.max_hit = a.max_hit.max(total);
+        a.hits += hits;
+        a.max_hit = a.max_hit.max(u64::from(d.damage));
         a.perfect += u64::from(d.specials.perfect);
         a.back += u64::from(d.specials.back);
         let s = a.skills.entry(skill).or_default();
         s.damage += total;
-        s.hits += 1;
-        s.max_hit = s.max_hit.max(total);
+        s.hits += hits;
+        s.max_hit = s.max_hit.max(u64::from(d.damage));
         s.dot |= d.dot;
         *enc.damage_by_target.entry(d.target).or_default() += total;
-        self.pending.entry(d.target).or_default().push(PendingHit {
-            actor,
-            skill,
-            raw,
-            credited: total,
-        });
-    }
-
-    /// No servidor global o valor de dano do pacote não é o quanto a vida do
-    /// monstro cai: a queda é um múltiplo fixo por atacante (4,5x para a
-    /// maioria nas gravações do SA de 10/2026). Cada atualização de vida
-    /// confere os golpes desde a anterior: a queda real é dividida entre eles
-    /// e o fator do atacante é aprendido para os próximos golpes.
-    fn on_hp(&mut self, entity: EntityId, hp: u32) {
-        let prev = self.mob_hp.insert(entity, hp);
-        let Some(hits) = self.pending.remove(&entity) else {
-            return;
-        };
-        let Some(prev) = prev else { return };
-        // Vida subiu (cura/regeneração) ou o golpe final passou do que
-        // restava: não dá para saber o dano real, fica o estimado.
-        if hp >= prev || hp == 0 {
-            return;
-        }
-        let drop = f64::from(prev - hp);
-        let sum_raw: u64 = hits.iter().map(|h| h.raw).sum();
-        if sum_raw == 0 {
-            return;
-        }
-        if hits.iter().all(|h| h.actor == hits[0].actor) {
-            let r = drop / sum_raw as f64;
-            if (0.5..=1_000.0).contains(&r) {
-                self.hp_ratio.insert(hits[0].actor, r);
-            }
-        }
-        let weight = |h: &PendingHit| h.raw as f64 * self.hp_ratio.get(&h.actor).copied().unwrap_or(1.0);
-        let sum_w: f64 = hits.iter().map(weight).sum();
-        let Some(enc) = self.current.as_mut() else { return };
-        for h in &hits {
-            let real = (drop * weight(h) / sum_w).round() as u64;
-            let Some(a) = enc.actors.get_mut(&h.actor) else {
-                continue;
-            };
-            a.damage = (a.damage + real).saturating_sub(h.credited);
-            a.max_hit = a.max_hit.max(real);
-            if let Some(s) = a.skills.get_mut(&h.skill) {
-                s.damage = (s.damage + real).saturating_sub(h.credited);
-                s.max_hit = s.max_hit.max(real);
-            }
-            if let Some(t) = enc.damage_by_target.get_mut(&entity) {
-                *t = (*t + real).saturating_sub(h.credited);
-            }
-        }
     }
 
     fn build(&self, e: &Encounter, live: bool) -> EncounterSnapshot {
@@ -522,22 +456,17 @@ mod tests {
         assert_eq!((s.total_damage, s.actors[0].hits, s.actors[0].max_hit), (100, 1, 100));
     }
 
+    /// A vida do monstro (0x8d00) cai num múltiplo do dano do pacote (4,5x
+    /// na maioria), mas o Ctrl+X do jogo mostra o dano do pacote. Conferido
+    /// com a análise de combate de um Caçador no SA (10/2026).
     #[test]
-    fn hp_drop_calibrates_damage() {
+    fn mob_hp_does_not_change_damage() {
         let mut e = Engine::new(EngineConfig::default());
         me(&mut e);
         let hp = |hp| GameEvent::MobHp { entity: 100, hp };
         e.handle(&hp(100_000), 0);
-        // Pacote diz 1000, a vida cai 4500 (como no SA).
         e.handle(&hit(1, 100, 11_000_000, 1_000), 0);
         e.handle(&hp(95_500), 0);
-        assert_eq!(e.snapshot().unwrap().total_damage, 4_500);
-        // Fator aprendido: o próximo golpe já entra corrigido, antes da vida.
-        e.handle(&hit(1, 100, 11_000_000, 2_000), 100);
-        assert_eq!(e.snapshot().unwrap().total_damage, 13_500);
-        // Golpe final passa do que restava: fica a estimativa.
-        e.handle(&hit(1, 100, 11_000_000, 100_000), 200);
-        e.handle(&hp(0), 200);
-        assert_eq!(e.snapshot().unwrap().total_damage, 463_500);
+        assert_eq!(e.snapshot().unwrap().total_damage, 1_000);
     }
 }
