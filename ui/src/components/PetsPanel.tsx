@@ -92,8 +92,8 @@ export function PetsPanel({ characterId }: { characterId: number }) {
             </span>
           </CardTitle>
           <CardDescription>
-            Marque os que você já tem. A lista que vem com o app ainda é parcial; adicione os que faltarem no fim da
-            página.
+            Marque os que você já tem. O mascote equipado no perfil oficial é marcado sozinho, porque o site não mostra
+            a coleção inteira. A lista que vem com o app ainda é parcial; adicione os que faltarem no fim da página.
           </CardDescription>
           <div className="bg-muted mt-1 h-2 overflow-hidden rounded-full">
             <div

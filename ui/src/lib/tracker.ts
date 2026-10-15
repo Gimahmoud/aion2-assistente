@@ -88,7 +88,8 @@ export const trackerApi = {
   setEventAlert: (eventId: string, enabled: boolean, leadMin: number) =>
     invoke<void>("set_event_alert", { eventId, enabled, leadMin }),
   testNotification: () => invoke<void>("test_notification"),
-  officialSearch: (region: string, name: string) =>
+  /** `region` vazia ou nula procura em todas as regiões. */
+  officialSearch: (region: string | null, name: string) =>
     invoke<Record<string, unknown>[]>("official_search", { region, name }),
   officialLink: (characterId: number, link: OfficialLink | null) =>
     invoke<void>("official_link", { characterId, link }),
