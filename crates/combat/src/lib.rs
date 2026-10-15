@@ -113,6 +113,7 @@ pub struct Engine {
     self_id: Option<EntityId>,
     current: Option<Encounter>,
     next_id: u64,
+    ignored_damage: u64,
 }
 
 impl Engine {
@@ -180,6 +181,12 @@ impl Engine {
         self.current.as_ref().map(|e| self.build(e, true))
     }
 
+    /// Danos decodificados mas descartados (atacante não reconhecido como
+    /// jogador ou alvo jogador). Aparece no Diagnóstico.
+    pub fn ignored_damage(&self) -> u64 {
+        self.ignored_damage
+    }
+
     pub fn self_id(&self) -> Option<EntityId> {
         self.self_id
     }
@@ -216,9 +223,11 @@ impl Engine {
         let known_player = self.entities.get(&actor).is_some_and(|e| e.is_player);
         // Só conta dano causado por jogadores; monstros batendo em nós não.
         if !known_player && skill_class.is_none() {
+            self.ignored_damage += 1;
             return;
         }
         if self.entities.get(&d.target).is_some_and(|e| e.is_player) {
+            self.ignored_damage += 1;
             return;
         }
         let ent = self.entities.entry(actor).or_default();
@@ -394,6 +403,7 @@ mod tests {
         me(&mut e);
         e.handle(&hit(100, 1, 90_000_000, 9_999), 1_000);
         assert!(e.snapshot().is_none());
+        assert_eq!(e.ignored_damage(), 1);
     }
 
     #[test]

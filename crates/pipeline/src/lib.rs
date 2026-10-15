@@ -97,7 +97,11 @@ impl Pipeline {
             resyncs: framing.resyncs,
             tcp_gaps,
             decompress_errors: framing.decompress_errors,
-            events: self.events.clone(),
+            events: {
+                let mut ev = self.events.clone();
+                ev.insert("damage_ignored", self.engine.ignored_damage());
+                ev
+            },
             unknown_opcodes: unknown,
             opcode_table: self.decoder.table().version.clone(),
         }

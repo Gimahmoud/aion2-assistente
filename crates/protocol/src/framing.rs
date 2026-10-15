@@ -14,6 +14,10 @@ use crate::varint;
 
 /// Buffer acima disso indica que perdemos o alinhamento; descartamos.
 const MAX_BUFFER: usize = 2 * 1024 * 1024;
+/// Uma mensagem maior que isso indica que o tamanho lido é lixo: começamos a
+/// ler no meio de uma mensagem (app aberto com o jogo já conectado) ou um
+/// pedaço do fluxo foi perdido.
+const MAX_FRAME: usize = 256 * 1024;
 /// Teto para o tamanho descomprimido, contra lixo no cabeçalho.
 const MAX_DECOMPRESSED: usize = 8 * 1024 * 1024;
 
@@ -67,7 +71,6 @@ impl StreamAssembler {
         if self.buf.len() + chunk.len() > MAX_BUFFER {
             self.stats.resyncs += 1;
             self.buf.clear();
-            return Vec::new();
         }
         self.buf.extend_from_slice(chunk);
 
@@ -93,6 +96,13 @@ impl StreamAssembler {
                 break;
             }
             let real = real as usize;
+            if real > MAX_FRAME {
+                // Fora de sincronia: descarta e recomeça no próximo segmento,
+                // que costuma começar no início de uma mensagem.
+                self.stats.resyncs += 1;
+                pos = self.buf.len();
+                break;
+            }
             if self.buf.len() - pos < real {
                 break;
             }
@@ -222,6 +232,17 @@ mod tests {
         assert_eq!(got[0].bytes, inner[0]);
         assert_eq!(got[1].opcode(), Some(0x3633));
         assert_eq!(asm.stats.compressed_batches, 1);
+    }
+
+    #[test]
+    fn resyncs_when_joining_mid_message() {
+        let mut asm = StreamAssembler::new();
+        // Cauda de uma mensagem anterior com um "tamanho" absurdo.
+        assert!(asm.push(&[0xff, 0xff, 0xff, 0x7f, 1, 2, 3]).is_empty());
+        assert_eq!(asm.stats.resyncs, 1);
+        // O próximo segmento começa numa mensagem e é lido normalmente.
+        let a = build_frame(None, &[0x04, 0x38, 1, 2]);
+        assert_eq!(asm.push(&a).len(), 1);
     }
 
     #[test]
