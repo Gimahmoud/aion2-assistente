@@ -119,6 +119,9 @@ pub struct Engine {
     /// Quanto a vida do monstro cai por ponto de dano do pacote, por
     /// atacante. Ver [`Engine::on_hp`].
     hp_ratio: HashMap<EntityId, f64>,
+    /// O mesmo fator por par atacante/alvo: personagens de nível baixo têm
+    /// fatores diferentes conforme o monstro (51,5x num, 60x noutro).
+    pair_ratio: HashMap<(EntityId, EntityId), f64>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -252,6 +255,9 @@ impl Engine {
             ent.class = skill_class;
         }
 
+        let raw = u64::from(d.damage);
+        let total = (raw as f64 * self.ratio(actor, d.target)).round() as u64;
+
         let id = &mut self.next_id;
         let enc = self.current.get_or_insert_with(|| {
             let e = Encounter {
@@ -266,9 +272,6 @@ impl Engine {
         });
         enc.last_ms = enc.last_ms.max(ts);
 
-        let raw = u64::from(d.damage);
-        let ratio = self.hp_ratio.get(&actor).copied().unwrap_or(1.0);
-        let total = (raw as f64 * ratio).round() as u64;
         let a = enc.actors.entry(actor).or_default();
         a.damage += total;
         a.hits += 1;
@@ -287,6 +290,16 @@ impl Engine {
             raw,
             credited: total,
         });
+    }
+
+    /// Fator conhecido para este atacante neste alvo, senão o último do
+    /// atacante, senão 1.
+    fn ratio(&self, actor: EntityId, target: EntityId) -> f64 {
+        self.pair_ratio
+            .get(&(actor, target))
+            .or_else(|| self.hp_ratio.get(&actor))
+            .copied()
+            .unwrap_or(1.0)
     }
 
     /// No servidor global o valor de dano do pacote não é o quanto a vida do
@@ -314,13 +327,17 @@ impl Engine {
             let r = drop / sum_raw as f64;
             if (0.5..=1_000.0).contains(&r) {
                 self.hp_ratio.insert(hits[0].actor, r);
+                self.pair_ratio.insert((hits[0].actor, entity), r);
             }
         }
-        let weight = |h: &PendingHit| h.raw as f64 * self.hp_ratio.get(&h.actor).copied().unwrap_or(1.0);
-        let sum_w: f64 = hits.iter().map(weight).sum();
+        let weights: Vec<f64> = hits
+            .iter()
+            .map(|h| h.raw as f64 * self.ratio(h.actor, entity))
+            .collect();
+        let sum_w: f64 = weights.iter().sum();
         let Some(enc) = self.current.as_mut() else { return };
-        for h in &hits {
-            let real = (drop * weight(h) / sum_w).round() as u64;
+        for (h, w) in hits.iter().zip(&weights) {
+            let real = (drop * w / sum_w).round() as u64;
             let Some(a) = enc.actors.get_mut(&h.actor) else {
                 continue;
             };
