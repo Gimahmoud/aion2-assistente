@@ -88,7 +88,12 @@ export default function App() {
   }
 
   async function pickReplay() {
-    const path = await open({ multiple: false, filters: [{ name: "Captura", extensions: ["pcap"] }] });
+    const defaultPath = await api.recordingsDir().catch(() => undefined);
+    const path = await open({
+      multiple: false,
+      defaultPath,
+      filters: [{ name: "Captura", extensions: ["pcap"] }],
+    });
     if (typeof path === "string") await api.replayFile(path);
   }
 

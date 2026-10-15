@@ -54,12 +54,23 @@ pub fn replay_file(state: State<'_, AppState>, path: String) -> CmdResult<()> {
     send(&state, Command::Replay(PathBuf::from(path)))
 }
 
-/// Liga ou desliga a gravação do tráfego em `%APPDATA%\...\gravacoes`.
+/// Pasta das gravações (`%APPDATA%\...\gravacoes`), criada se faltar.
+fn recordings_path(app: &AppHandle) -> CmdResult<std::path::PathBuf> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("gravacoes");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+#[tauri::command]
+pub fn recordings_dir(app: AppHandle) -> CmdResult<String> {
+    Ok(recordings_path(&app)?.display().to_string())
+}
+
+/// Liga ou desliga a gravação do tráfego na pasta das gravações.
 #[tauri::command]
 pub fn set_recording(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> CmdResult<Option<String>> {
     let path = if enabled {
-        let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("gravacoes");
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let dir = recordings_path(&app)?;
         Some(dir.join(format!("aion2-{}.pcap", crate::runtime::now_ms())))
     } else {
         None

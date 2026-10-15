@@ -78,15 +78,19 @@ pub fn game_connections(process_hints: &[&str]) -> Result<Vec<GameConnection>, D
     Ok(out)
 }
 
-/// Filtro BPF que só deixa passar o que vem dos servidores do jogo.
-pub fn bpf_for(servers: &HashSet<SocketAddrV4>) -> String {
-    if servers.is_empty() {
+/// Portas dos servidores do jogo.
+pub fn server_ports(servers: &HashSet<SocketAddrV4>) -> HashSet<u16> {
+    servers.iter().map(|s| s.port()).collect()
+}
+
+/// Filtro BPF que só deixa passar o que vem das portas dos servidores do
+/// jogo. Filtra pela porta, não pelo endereço, para não perder o começo de
+/// uma conexão nova (ao entrar no personagem o jogo troca de servidor).
+pub fn bpf_for(ports: &HashSet<u16>) -> String {
+    if ports.is_empty() {
         return "tcp".into();
     }
-    let mut parts: Vec<String> = servers
-        .iter()
-        .map(|s| format!("(src host {} and src port {})", s.ip(), s.port()))
-        .collect();
+    let mut parts: Vec<String> = ports.iter().map(|p| format!("src port {p}")).collect();
     parts.sort();
     format!("tcp and ({})", parts.join(" or "))
 }
@@ -99,7 +103,13 @@ mod tests {
     fn bpf() {
         let mut s = HashSet::new();
         s.insert("1.2.3.4:13328".parse().unwrap());
-        assert_eq!(bpf_for(&s), "tcp and ((src host 1.2.3.4 and src port 13328))");
+        s.insert("5.6.7.8:13328".parse().unwrap());
+        let ports = server_ports(&s);
+        assert_eq!(bpf_for(&ports), "tcp and (src port 13328)");
+        assert_eq!(
+            bpf_for(&HashSet::from([2106, 13328])),
+            "tcp and (src port 13328 or src port 2106)"
+        );
         assert_eq!(bpf_for(&HashSet::new()), "tcp");
     }
 }
