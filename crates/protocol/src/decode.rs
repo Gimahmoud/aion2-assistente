@@ -76,6 +76,10 @@ pub enum GameEvent {
         name: String,
         job_code: Option<u8>,
     },
+    /// Entidade do próprio personagem, sem o nome.
+    SelfEntity {
+        entity: EntityId,
+    },
     MobSpawn {
         entity: EntityId,
         mob_code: u32,
@@ -132,6 +136,10 @@ impl Decoder {
             parse_kill_credit(msg)
         } else if t.party_info.is_some_and(|o| o.key() == op) {
             parse_party_self(msg)
+        } else if t.self_status.is_some_and(|o| o.key() == op) {
+            Cur::after_opcode(msg)
+                .varint()
+                .map(|entity| GameEvent::SelfEntity { entity })
         } else {
             *self.unknown_opcodes.entry(op).or_default() += 1;
             None
@@ -293,9 +301,13 @@ fn is_valid_name(s: &str) -> bool {
 fn parse_own_nickname(msg: &Message) -> Option<GameEvent> {
     let mut c = Cur::after_opcode(msg);
     let entity = c.varint()?;
+    // KR: `[entidade] .. 0x07 [nome]`. SA: `[entidade] [5 bytes] [nome]`, sem o 0x07.
     let window = c.b.get(c.pos..(c.pos + 10).min(c.b.len()))?;
-    let sep = window.iter().position(|&x| x == 0x07)?;
-    let (name, end) = read_name(c.b, c.pos + sep + 1)?;
+    let after_sep = window
+        .iter()
+        .position(|&x| x == 0x07)
+        .and_then(|sep| read_name(c.b, c.pos + sep + 1));
+    let (name, end) = after_sep.or_else(|| (0..10).find_map(|i| read_name(c.b, c.pos + i)))?;
     let server = u16_le(c.b, end);
     let job_code = c.b.get(end + 2).copied();
     Some(GameEvent::OwnCharacter {
@@ -520,6 +532,27 @@ mod tests {
                 job_code: Some(26)
             }]
         );
+    }
+
+    #[test]
+    fn decodes_real_sa_own_nickname() {
+        let b = hex("33 36 90 45 5f 91 c1 28 37 09 47 69 6d 61 68 6d 6f 75 64 79 05 0e 00 00 00 01 2d 00 00 00");
+        let ev = decode_one(build_frame(None, &b));
+        assert_eq!(
+            ev,
+            vec![GameEvent::OwnCharacter {
+                entity: 8848,
+                name: "Gimahmoud".into(),
+                server: Some(1401),
+                job_code: Some(14)
+            }]
+        );
+    }
+
+    #[test]
+    fn decodes_self_status() {
+        let ev = decode_one(build_frame(None, &hex("4a 36 ef 4b 00 01 02")));
+        assert_eq!(ev, vec![GameEvent::SelfEntity { entity: 9711 }]);
     }
 
     fn hex(s: &str) -> Vec<u8> {

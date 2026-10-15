@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use capture::{FlowStats, FlowTable, Segment, ServerFilter};
 use combat::{Class, EncounterSnapshot, Engine, EngineConfig};
 use protocol::{Decoder, GameEvent, OpcodeTable};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct PipelineStats {
@@ -27,7 +27,7 @@ pub struct PipelineStats {
 
 /// Personagem logado. Vem do pacote de entrada no mundo ou, no SA, do pacote
 /// do grupo; quando o pacote não traz a classe, ela é deduzida das skills.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OwnCharacter {
     pub name: String,
     pub server: Option<u16>,
@@ -98,6 +98,14 @@ impl Pipeline {
         self.engine.snapshot()
     }
 
+    /// Personagem da última sessão (salvo pelo app). Vale até o jogo mandar
+    /// o personagem de novo, o que só acontece ao entrar no mundo ou trocar
+    /// de mapa.
+    pub fn remember_own(&mut self, own: OwnCharacter) {
+        self.engine.remember_own_name(&own.name);
+        self.own = Some(own);
+    }
+
     /// Último personagem logado visto no tráfego.
     pub fn own_character(&self) -> Option<&OwnCharacter> {
         self.own.as_ref()
@@ -147,6 +155,7 @@ fn kind(ev: &GameEvent) -> &'static str {
         GameEvent::Damage(_) => "damage",
         GameEvent::OwnCharacter { .. } => "own_character",
         GameEvent::OtherCharacter { .. } => "other_character",
+        GameEvent::SelfEntity { .. } => "self_entity",
         GameEvent::MobSpawn { .. } => "mob_spawn",
         GameEvent::SummonOwner { .. } => "summon_owner",
         GameEvent::BattleToggle { .. } => "battle_toggle",
