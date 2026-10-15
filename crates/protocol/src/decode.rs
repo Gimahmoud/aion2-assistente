@@ -53,7 +53,8 @@ pub struct DamageEvent {
     /// da skill dos últimos dígitos) é feita no motor de combate.
     pub skill_raw: u32,
     pub damage: u32,
-    /// Golpes múltiplos com o mesmo valor (0 quando não há).
+    /// Quantidade de golpes informada no pacote (0 quando não vem). O dano
+    /// em `damage` já é o total; isto é só informativo.
     pub hits: u8,
     pub dot: bool,
     pub specials: SpecialFlags,
@@ -127,6 +128,10 @@ impl Decoder {
             parse_battle_toggle(msg)
         } else if op == t.remain_hp.key() {
             parse_remain_hp(msg)
+        } else if t.kill_credit.is_some_and(|o| o.key() == op) {
+            parse_kill_credit(msg)
+        } else if t.party_info.is_some_and(|o| o.key() == op) {
+            parse_party_self(msg)
         } else {
             *self.unknown_opcodes.entry(op).or_default() += 1;
             None
@@ -185,10 +190,13 @@ fn parse_damage(msg: &Message) -> Option<DamageEvent> {
     let _kind = c.varint()?;
 
     // Tamanho do bloco de flags depende dos 4 bits baixos de `switch`.
+    // O TK (KR 06/2026) usava 10 para o tipo 6; no servidor global (SA,
+    // 10/2026) são 11: [flags especiais][00][01|02][4 bytes]. Conferido em
+    // gravações reais; 5 e 7 ainda não apareceram e seguem os valores do TK.
     let block = match switch & 0x0f {
         4 => 8,
         5 => 12,
-        6 => 10,
+        6 => 11,
         7 => 14,
         _ => return None,
     };
@@ -207,7 +215,10 @@ fn parse_damage(msg: &Message) -> Option<DamageEvent> {
 
     let _unknown = c.varint()?;
     let damage = c.varint()?;
-    let hits = parse_multi_hit(&mut c);
+    // Com o bit 0x20 vem uma lista [n][valor]{n}. Os valores não são o dano
+    // de cada golpe (são pequenos e não somam o total), então o dano acima já
+    // é o total e não deve ser multiplicado.
+    let hits = if switch & 0x20 != 0 { skip_hit_list(&mut c) } else { 0 };
 
     if actor == target {
         return None;
@@ -223,24 +234,11 @@ fn parse_damage(msg: &Message) -> Option<DamageEvent> {
     })
 }
 
-/// `[n][dano]{n}` quando todos os golpes têm o mesmo valor; senão 0.
-fn parse_multi_hit(c: &mut Cur) -> u8 {
-    let start = c.pos;
+/// Pula `[n][valor]{n}` e devolve `n`.
+fn skip_hit_list(c: &mut Cur) -> u8 {
     let Some(n) = c.byte() else { return 0 };
-    if n == 0 {
-        return 0;
-    }
-    let Some(first) = c.varint() else {
-        c.pos = start;
-        return 0;
-    };
-    if first == 0 {
-        c.pos = start;
-        return 0;
-    }
-    for _ in 1..n {
-        if c.varint() != Some(first) {
-            c.pos = start;
+    for _ in 0..n {
+        if c.varint().is_none() {
             return 0;
         }
     }
@@ -318,6 +316,49 @@ fn parse_other_nickname(msg: &Message) -> Option<GameEvent> {
     let (name, end) = (0..5).find_map(|i| read_name(c.b, base + i))?;
     let job_code = c.b.get(end).copied();
     Some(GameEvent::OtherCharacter { entity, name, job_code })
+}
+
+/// `[alvo][skill u32][quem matou][servidor u16][nome][guilda]...`
+fn parse_kill_credit(msg: &Message) -> Option<GameEvent> {
+    let mut c = Cur::after_opcode(msg);
+    c.varint()?;
+    c.u32()?;
+    let entity = c.varint()?;
+    c.pos += 2;
+    let (name, _) = read_name(c.b, c.pos)?;
+    Some(GameEvent::OtherCharacter {
+        entity,
+        name,
+        job_code: None,
+    })
+}
+
+/// Lista do grupo. A primeira entrada é o próprio personagem:
+/// `[entidade u32][servidor u16][servidor u16][36 "uuid"][6 bytes][servidor u16][nome]`.
+fn parse_party_self(msg: &Message) -> Option<GameEvent> {
+    let b = &msg.bytes;
+    let first = msg.opcode_offset() + 2 + 8;
+    let uuid = (first..b.len().saturating_sub(37)).find(|&i| b[i] == 36 && is_uuid(&b[i + 1..i + 37]))?;
+    let entity = u32_le(b, uuid - 8)?;
+    let server = u16_le(b, uuid - 4)?;
+    if !(1..0x0100_0000).contains(&entity) {
+        return None;
+    }
+    let (name, _) = read_name(b, uuid + 37 + 8)?;
+    Some(GameEvent::OwnCharacter {
+        entity,
+        name,
+        server: Some(server),
+        job_code: None,
+    })
+}
+
+fn is_uuid(s: &[u8]) -> bool {
+    s.len() == 36
+        && s.iter().enumerate().all(|(i, &c)| match i {
+            8 | 13 | 18 | 23 => c == b'-',
+            _ => c.is_ascii_hexdigit(),
+        })
 }
 
 fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
@@ -402,7 +443,7 @@ mod tests {
         let block = match switch & 0x0f {
             4 => 8,
             5 => 12,
-            6 => 10,
+            6 => 11,
             _ => 14,
         };
         let mut flags = vec![0u8; block];
@@ -477,6 +518,74 @@ mod tests {
                 name: name.into(),
                 server: Some(2005),
                 job_code: Some(26)
+            }]
+        );
+    }
+
+    fn hex(s: &str) -> Vec<u8> {
+        s.split_whitespace()
+            .map(|x| u8::from_str_radix(x, 16).unwrap())
+            .collect()
+    }
+
+    /// Pacotes reais do servidor SA (10/2026), capturados pelo app.
+    #[test]
+    fn decodes_real_sa_damage() {
+        // Tipo 6: o bloco tem 11 bytes. Antes lia o campo `f7 6b` (13815)
+        // como dano.
+        let ev = decode_one(hex(
+            "24 04 38 91 c6 01 06 00 e6 44 22 d0 da 00 1c 03 00 00 02 43 26 79 55 01 00 00 00 f7 6b ec 10 01 00",
+        ));
+        let GameEvent::Damage(d) = &ev[0] else { panic!("{ev:?}") };
+        assert_eq!(
+            (d.actor, d.target, d.skill_raw, d.damage),
+            (8806, 25361, 14340130, 2156)
+        );
+
+        // Bit 0x20: lista de 4 golpes depois do dano; o dano não é multiplicado.
+        let ev = decode_one(hex(
+            "29 04 38 91 c6 01 26 00 e6 44 22 d0 da 00 19 02 04 00 02 4d 26 79 55 02 00 00 00 f7 6b ec 0b 04 21 21 21 21 02 00",
+        ));
+        let GameEvent::Damage(d) = &ev[0] else { panic!("{ev:?}") };
+        assert_eq!((d.damage, d.hits), (1516, 4));
+
+        // Tipo 4 com bit 0x20.
+        let ev = decode_one(hex(
+            "26 04 38 91 c6 01 24 00 e6 44 22 d0 da 00 19 02 43 26 79 55 01 00 00 00 f7 6b 8e 0b 04 1f 1f 1f 1f 01 00",
+        ));
+        assert!(matches!(&ev[0], GameEvent::Damage(d) if d.damage == 1422));
+    }
+
+    #[test]
+    fn decodes_real_sa_kill_credit() {
+        let ev = decode_one(hex(
+            "30 04 8d 91 c6 01 22 d0 da 00 e6 44 79 05 09 47 69 6d 61 68 6d 6f 75 64 0b 4c 69 67 61 63 72 69 74 69 63 61 01 00 00 00 00 00 00 01 00",
+        ));
+        assert_eq!(
+            ev,
+            vec![GameEvent::OtherCharacter {
+                entity: 8806,
+                name: "Gimahmoud".into(),
+                job_code: None
+            }]
+        );
+    }
+
+    #[test]
+    fn decodes_real_sa_party_self() {
+        let mut b = hex("00 92 00 48 4b 01 00 dc ef 25 9a 9d 6d 03 00 00 00 64 09 05 00 00 00 02 01 00 02 02 03 02 66 22 00 00 79 05 79 05 24");
+        b.extend_from_slice(b"26F7D912-2C2A-4482-AB62-A6E71D2A4306");
+        b.extend(hex(
+            "5d ce 04 00 00 00 79 05 09 47 69 6d 61 68 6d 6f 75 64 0e 00 00 00 93 92 01",
+        ));
+        let ev = decode_one(build_frame(None, &b));
+        assert_eq!(
+            ev,
+            vec![GameEvent::OwnCharacter {
+                entity: 8806,
+                name: "Gimahmoud".into(),
+                server: Some(1401),
+                job_code: None
             }]
         );
     }

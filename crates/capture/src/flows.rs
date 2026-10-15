@@ -82,9 +82,14 @@ impl FlowTable {
         self.closed_stats.bytes += seg.payload.len() as u64;
         // SYN consome um número de sequência; os dados começam em seq+1.
         let seq = if seg.syn { seg.seq.wrapping_add(1) } else { seg.seq };
+        let fed = flow.aligner.feed(seq, &seg.payload, seg.ts_ms);
         let mut out = Vec::new();
-        for chunk in flow.aligner.feed(seq, &seg.payload) {
-            out.extend(flow.assembler.push(&chunk));
+        for (i, chunk) in fed.chunks.iter().enumerate() {
+            if fed.gap_at == Some(i) {
+                // Dados perdidos no meio: o que estava pela metade não fecha mais.
+                flow.assembler.reset();
+            }
+            out.extend(flow.assembler.push(chunk));
         }
         out
     }
