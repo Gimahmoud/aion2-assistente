@@ -63,7 +63,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU0NTJBM0VFNjRDNkMyMDQKUldRRXdzWms3cU5TNVBYa1h2aVp1SGZEa1F2RWxwN2EySXliU2QxR2xsVHI3TkRnZ2FDVkFJTFoK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5N0UyMEJBOTU0NDRBQ0IKUldUTFNrU1Z1aUIrcWM4SjhYOW5KOXIvcVhLWEdqNnRIRDRpQ1hCd2lSMThiWHNMWGM2TVVvV0EK",
       "endpoints": [
         "https://github.com/Gimahmoud/aion2-assistente/releases/latest/download/latest.json"
       ],
