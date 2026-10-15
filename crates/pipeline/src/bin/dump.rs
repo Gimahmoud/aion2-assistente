@@ -30,7 +30,12 @@ fn main() {
             for ev in dec.decode(&m) {
                 let t = (s.ts_ms - t0) as f64 / 1000.0;
                 println!("{t:8.3} {}", serde_json::to_string(&ev).unwrap());
-                if hex && matches!(ev, GameEvent::Damage(_) | GameEvent::OwnCharacter { .. }) {
+                if hex
+                    && matches!(
+                        ev,
+                        GameEvent::Damage(_) | GameEvent::OwnCharacter { .. } | GameEvent::MobHp { .. }
+                    )
+                {
                     let h: Vec<String> = m.bytes.iter().map(|b| format!("{b:02x}")).collect();
                     println!("         {}", h.join(" "));
                 }
