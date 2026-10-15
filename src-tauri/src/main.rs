@@ -3,6 +3,7 @@
 
 mod commands;
 mod npcap;
+mod official;
 mod runtime;
 mod tracker_cmds;
 
@@ -111,6 +112,10 @@ fn main() {
             tracker_cmds::upcoming_events,
             tracker_cmds::set_event_alert,
             tracker_cmds::test_notification,
+            official::official_search,
+            official::official_link,
+            official::official_refresh,
+            official::official_cached,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o app");

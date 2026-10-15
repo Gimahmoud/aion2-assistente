@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChecklistPanel } from "@/components/ChecklistPanel";
 import { PetsPanel } from "@/components/PetsPanel";
+import { ProfilePanel } from "@/components/ProfilePanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -201,11 +202,15 @@ export function CharactersTab() {
       </div>
 
       {current && (
-        <Tabs defaultValue="checklist">
+        <Tabs defaultValue="profile">
           <TabsList>
+            <TabsTrigger value="profile">Perfil</TabsTrigger>
             <TabsTrigger value="checklist">Diárias e semanais</TabsTrigger>
             <TabsTrigger value="pets">Mascotes</TabsTrigger>
           </TabsList>
+          <TabsContent value="profile">
+            <ProfilePanel character={current} onChanged={reload} />
+          </TabsContent>
           <TabsContent value="checklist">
             <ChecklistPanel characterId={current.id} />
           </TabsContent>

@@ -18,7 +18,8 @@ pub enum TrackerError {
 
 pub type Result<T> = std::result::Result<T, TrackerError>;
 
-const MIGRATIONS: &[&str] = &[r#"
+const MIGRATIONS: &[&str] = &[
+    r#"
 CREATE TABLE characters (
     id            INTEGER PRIMARY KEY,
     name          TEXT NOT NULL,
@@ -63,15 +64,40 @@ CREATE TABLE alert_settings (
     enabled  INTEGER NOT NULL,
     lead_min INTEGER NOT NULL
 );
-"#];
+"#,
+    r#"
+-- Ligação com o perfil no site oficial e a última cópia baixada dele.
+ALTER TABLE characters ADD COLUMN official_region TEXT;
+ALTER TABLE characters ADD COLUMN official_server_id TEXT;
+ALTER TABLE characters ADD COLUMN official_character_id TEXT;
+ALTER TABLE characters ADD COLUMN profile_json TEXT;
+ALTER TABLE characters ADD COLUMN profile_fetched_ms INTEGER;
+"#,
+];
 
 pub const CUSTOM_PREFIX: &str = "u:";
+
+/// Onde achar o personagem na API oficial da NCSoft.
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
+pub struct OfficialLink {
+    pub region: String,
+    pub server_id: String,
+    pub character_id: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Character {
     pub id: i64,
     pub name: String,
     pub class: Option<String>,
+    pub official: Option<OfficialLink>,
+}
+
+/// Última cópia do perfil oficial, guardada como veio da API.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CachedProfile {
+    pub json: String,
+    pub fetched_at_ms: i64,
 }
 
 pub struct TrackerStore {
@@ -112,14 +138,24 @@ impl TrackerStore {
     }
 
     pub fn characters(&self) -> Result<Vec<Character>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, name, class FROM characters ORDER BY id")?;
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, class, official_region, official_server_id, official_character_id
+             FROM characters ORDER BY id",
+        )?;
         let rows = stmt.query_map([], |r| {
+            let link: (Option<String>, Option<String>, Option<String>) = (r.get(3)?, r.get(4)?, r.get(5)?);
             Ok(Character {
                 id: r.get(0)?,
                 name: r.get(1)?,
                 class: r.get(2)?,
+                official: match link {
+                    (Some(region), Some(server_id), Some(character_id)) => Some(OfficialLink {
+                        region,
+                        server_id,
+                        character_id,
+                    }),
+                    _ => None,
+                },
             })
         })?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
@@ -134,6 +170,7 @@ impl TrackerStore {
             id: self.conn.last_insert_rowid(),
             name: name.into(),
             class: class.map(Into::into),
+            official: None,
         })
     }
 
@@ -143,6 +180,46 @@ impl TrackerStore {
             params![id, name, class],
         )?;
         Ok(())
+    }
+
+    /// Liga (ou desliga, com `None`) o personagem a um perfil oficial. Trocar
+    /// a ligação apaga a cópia do perfil antigo.
+    pub fn set_official_link(&self, id: i64, link: Option<&OfficialLink>) -> Result<()> {
+        self.conn.execute(
+            "UPDATE characters SET official_region = ?2, official_server_id = ?3, official_character_id = ?4,
+                 profile_json = NULL, profile_fetched_ms = NULL
+             WHERE id = ?1",
+            params![
+                id,
+                link.map(|l| &l.region),
+                link.map(|l| &l.server_id),
+                link.map(|l| &l.character_id)
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn save_profile(&self, id: i64, json: &str, now_ms: i64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE characters SET profile_json = ?2, profile_fetched_ms = ?3 WHERE id = ?1",
+            params![id, json, now_ms],
+        )?;
+        Ok(())
+    }
+
+    pub fn cached_profile(&self, id: i64) -> Result<Option<CachedProfile>> {
+        let row: Option<(Option<String>, Option<i64>)> = self
+            .conn
+            .query_row(
+                "SELECT profile_json, profile_fetched_ms FROM characters WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        Ok(match row {
+            Some((Some(json), Some(fetched_at_ms))) => Some(CachedProfile { json, fetched_at_ms }),
+            _ => None,
+        })
     }
 
     pub fn remove_character(&self, id: i64) -> Result<()> {
