@@ -17,7 +17,7 @@ use serde::Serialize;
 pub use catalog::{Catalog, PetDef, Scope, TaskDef};
 pub use clock::{Period, ServerClock};
 pub use schedule::{EventRule, Occurrence};
-pub use store::{Character, Result, TrackerError, TrackerStore};
+pub use store::{CachedProfile, Character, OfficialLink, Result, TrackerError, TrackerStore};
 
 use clock::MINUTE_MS;
 
@@ -117,6 +117,29 @@ impl Tracker {
 
     pub fn remove_character(&self, id: i64) -> Result<()> {
         self.store.remove_character(id)
+    }
+
+    pub fn character(&self, id: i64) -> Result<Character> {
+        self.store
+            .characters()?
+            .into_iter()
+            .find(|c| c.id == id)
+            .ok_or_else(|| invalid(format!("personagem desconhecido: {id}")))
+    }
+
+    // ---- perfil oficial ----
+
+    pub fn set_official_link(&self, id: i64, link: Option<&OfficialLink>) -> Result<()> {
+        self.character(id)?;
+        self.store.set_official_link(id, link)
+    }
+
+    pub fn save_profile(&self, id: i64, json: &str, now_ms: i64) -> Result<()> {
+        self.store.save_profile(id, json, now_ms)
+    }
+
+    pub fn cached_profile(&self, id: i64) -> Result<Option<CachedProfile>> {
+        self.store.cached_profile(id)
     }
 
     // ---- mascotes ----
@@ -374,6 +397,29 @@ mod tests {
         assert_eq!(owned(&t, a.id), 0);
         t.remove_character(a.id).unwrap();
         assert_eq!(t.characters().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn official_link_and_profile_cache() {
+        let t = tracker();
+        let c = t.add_character("Eu", None, 0).unwrap();
+        assert_eq!(t.character(c.id).unwrap().official, None);
+        let link = OfficialLink {
+            region: "la".into(),
+            server_id: "2102".into(),
+            character_id: "abc%3D".into(),
+        };
+        t.set_official_link(c.id, Some(&link)).unwrap();
+        assert_eq!(t.character(c.id).unwrap().official, Some(link.clone()));
+        assert_eq!(t.cached_profile(c.id).unwrap(), None);
+        t.save_profile(c.id, "{\"a\":1}", 5).unwrap();
+        assert_eq!(t.cached_profile(c.id).unwrap().unwrap().fetched_at_ms, 5);
+        // Trocar a ligação descarta a cópia antiga.
+        t.set_official_link(c.id, Some(&link)).unwrap();
+        assert_eq!(t.cached_profile(c.id).unwrap(), None);
+        t.set_official_link(c.id, None).unwrap();
+        assert_eq!(t.character(c.id).unwrap().official, None);
+        assert!(t.set_official_link(999, None).is_err());
     }
 
     #[test]

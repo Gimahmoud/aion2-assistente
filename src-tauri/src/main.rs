@@ -3,6 +3,7 @@
 
 mod commands;
 mod npcap;
+mod official;
 mod runtime;
 mod tracker_cmds;
 
@@ -11,6 +12,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri_plugin_window_state::StateFlags;
 
 /// Estado atual do overlay: `true` = cliques atravessam a janela.
 static CLICK_THROUGH: AtomicBool = AtomicBool::new(true);
@@ -40,6 +42,12 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        // Lembra onde o usuário deixou o overlay e a janela principal.
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(StateFlags::POSITION | StateFlags::SIZE)
+                .build(),
+        )
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -104,6 +112,10 @@ fn main() {
             tracker_cmds::upcoming_events,
             tracker_cmds::set_event_alert,
             tracker_cmds::test_notification,
+            official::official_search,
+            official::official_link,
+            official::official_refresh,
+            official::official_cached,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o app");

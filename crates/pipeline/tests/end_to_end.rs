@@ -74,6 +74,10 @@ fn stream_to_dps() {
     assert_eq!(me.damage, 3_000);
     assert_eq!(me.skills.len(), 2);
 
+    let own = p.own_character().expect("personagem logado");
+    assert_eq!(own.name, "Giovanni");
+    assert_eq!(own.server, Some(1));
+
     let stats = p.stats();
     assert_eq!(stats.compressed_batches, 1);
     assert_eq!(stats.events["damage"], 3);
