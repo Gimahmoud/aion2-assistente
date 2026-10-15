@@ -33,5 +33,13 @@
   "remain_hp": [
     0,
     141
+  ],
+  "kill_credit": [
+    4,
+    141
+  ],
+  "party_info": [
+    0,
+    146
   ]
 }

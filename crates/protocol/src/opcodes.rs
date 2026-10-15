@@ -23,6 +23,14 @@ pub struct OpcodeTable {
     pub dot: Op,
     pub battle_toggle: Op,
     pub remain_hp: Op,
+    /// Crédito de abate: alvo, skill, quem matou e o nome dele. Visto no
+    /// servidor global (SA, 10/2026); dá nome a jogadores sem pacote de nick.
+    #[serde(default)]
+    pub kill_credit: Option<Op>,
+    /// Dados do grupo; a primeira entrada é o próprio personagem. Visto no
+    /// servidor global (SA, 10/2026).
+    #[serde(default)]
+    pub party_info: Option<Op>,
 }
 
 impl OpcodeTable {
@@ -38,6 +46,8 @@ impl OpcodeTable {
             dot: Op(0x05, 0x38),
             battle_toggle: Op(0x21, 0x8d),
             remain_hp: Op(0x00, 0x8d),
+            kill_credit: Some(Op(0x04, 0x8d)),
+            party_info: Some(Op(0x00, 0x92)),
         }
     }
 

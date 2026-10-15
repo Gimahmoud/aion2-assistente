@@ -249,8 +249,8 @@ impl Engine {
         });
         enc.last_ms = enc.last_ms.max(ts);
 
-        let hits = u64::from(d.hits.max(1));
-        let total = u64::from(d.damage) * hits;
+        let hits = 1;
+        let total = u64::from(d.damage);
         let a = enc.actors.entry(actor).or_default();
         a.damage += total;
         a.hits += hits;
@@ -434,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_hit_multiplies() {
+    fn hit_list_does_not_multiply_damage() {
         let mut e = Engine::new(EngineConfig::default());
         let ev = GameEvent::Damage(DamageEvent {
             actor: 2,
@@ -447,6 +447,7 @@ mod tests {
         });
         e.handle(&ev, 0);
         let s = e.snapshot().unwrap();
-        assert_eq!((s.total_damage, s.actors[0].hits, s.actors[0].max_hit), (300, 3, 100));
+        // No SA o dano do pacote já é o total do golpe (conferido em gravações).
+        assert_eq!((s.total_damage, s.actors[0].hits, s.actors[0].max_hit), (100, 1, 100));
     }
 }
