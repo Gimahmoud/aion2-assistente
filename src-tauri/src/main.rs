@@ -6,6 +6,7 @@ mod npcap;
 mod official;
 mod runtime;
 mod tracker_cmds;
+mod updater;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -42,6 +43,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updater::UpdateState::default())
         // Lembra onde o usuário deixou o overlay e a janela principal.
         .plugin(
             tauri_plugin_window_state::Builder::new()
@@ -85,6 +88,7 @@ fn main() {
             app.global_shortcut().register(edit_overlay)?;
             app.global_shortcut().register(reset_fight)?;
             set_click_through(app.handle(), true)?;
+            updater::spawn_check(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -116,6 +120,7 @@ fn main() {
             official::official_link,
             official::official_refresh,
             official::official_cached,
+            updater::update_installing,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o app");
