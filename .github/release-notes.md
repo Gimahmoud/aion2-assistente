@@ -16,7 +16,7 @@
 - **Ctrl+Shift+O**: destrava o overlay para arrastar e redimensionar. Aperte de novo para travar.
 - **Ctrl+Shift+R**: começa uma nova luta.
 - A aba **Histórico** guarda as lutas anteriores com o detalhe por habilidade.
-- A aba **Personagens** tem, para cada personagem, as diárias e semanais (zeram sozinhas no reset do servidor) e a lista de mascotes com o filtro **Faltando**. Você adiciona tarefas e mascotes que faltarem.
+- Na aba **Personagens**, digite o nome e clique em **Buscar** para abrir o perfil do site oficial (nível, poder de combate, equipamentos, mascote e asas). Cada personagem tem as diárias e semanais (zeram sozinhas no reset do servidor) e a lista de mascotes com o filtro **Faltando**. O mascote equipado é marcado sozinho; os outros você marca.
 - A aba **Eventos** mostra os próximos eventos no horário do seu computador. Ligue os que quiser e escolha com quantos minutos de antecedência ser avisado por notificação do Windows. Use **Testar notificação** para conferir.
 
 ## Antes de usar
