@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Aion 2 Assistente",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "identifier": "io.github.gimahmoud.aion2assistente",
   "build": {
     "frontendDist": "../ui/dist",
@@ -43,12 +43,33 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
     "shortDescription": "Medidor de DPS para Aion 2",
     "copyright": "MIT",
     "windows": {
-      "nsis": { "installMode": "currentUser" }
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5N0UyMEJBOTU0NDRBQ0IKUldUTFNrU1Z1aUIrcWM4SjhYOW5KOXIvcVhLWEdqNnRIRDRpQ1hCd2lSMThiWHNMWGM2TVVvV0EK",
+      "endpoints": [
+        "https://github.com/Gimahmoud/aion2-assistente/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }
