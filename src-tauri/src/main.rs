@@ -11,7 +11,9 @@ mod updater;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_window_state::StateFlags;
 
@@ -24,6 +26,52 @@ pub fn set_click_through(app: &AppHandle, enabled: bool) -> tauri::Result<()> {
         CLICK_THROUGH.store(enabled, Ordering::Relaxed);
         let _ = app.emit("overlay:click_through", enabled);
     }
+    Ok(())
+}
+
+/// Traz a janela principal de volta (da bandeja ou de um segundo clique no atalho).
+fn show_main(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+/// Ícone na bandeja do Windows: clique abre o app; o menu tem Abrir,
+/// overlay e Sair. Fechar a janela só a esconde, para o medidor e os
+/// alertas continuarem rodando.
+fn build_tray(app: &tauri::App) -> tauri::Result<()> {
+    let open = MenuItem::with_id(app, "abrir", "Abrir", true, None::<&str>)?;
+    let overlay = MenuItem::with_id(app, "overlay", "Mostrar/ocultar overlay", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "sair", "Sair", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &overlay, &quit])?;
+    let mut tray = TrayIconBuilder::with_id("bandeja")
+        .tooltip("Aion 2 Assistente")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "abrir" => show_main(app),
+            "overlay" => {
+                let _ = commands::toggle_overlay(app.clone());
+            }
+            "sair" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main(tray.app_handle());
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.build(app)?;
     Ok(())
 }
 
@@ -40,6 +88,8 @@ fn main() {
     let reset_fight = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyR);
 
     tauri::Builder::default()
+        // Abrir o atalho de novo com o app na bandeja só mostra a janela.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
@@ -88,8 +138,17 @@ fn main() {
             app.global_shortcut().register(edit_overlay)?;
             app.global_shortcut().register(reset_fight)?;
             set_click_through(app.handle(), true)?;
+            build_tray(app)?;
             updater::spawn_check(app.handle().clone());
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_status,

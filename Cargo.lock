@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "aion2-assistente"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "capture",
  "combat",
@@ -36,6 +36,7 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tracing",
@@ -447,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "capture"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "crossbeam-channel",
  "etherparse",
@@ -571,7 +572,7 @@ dependencies = [
 
 [[package]]
 name = "combat"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "protocol",
  "serde",
@@ -3162,7 +3163,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pipeline"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "capture",
  "combat",
@@ -3360,7 +3361,7 @@ dependencies = [
 
 [[package]]
 name = "protocol"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "lz4_flex",
  "serde",
@@ -4135,7 +4136,7 @@ checksum = "ff7589a1859b09232522bb9edf076ca7fcf14ded96685d3fa629db73023ffbb7"
 
 [[package]]
 name = "storage"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "combat",
  "rusqlite",
@@ -4587,6 +4588,22 @@ dependencies = [
  "thiserror 2.0.21",
  "url",
  "windows",
+ "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-single-instance"
+version = "2.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "561cd99484561bc39c954768e7b41a66cebbe1ac3d9d081c34361f740c489e2c"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "windows-sys 0.61.2",
  "zbus",
 ]
 
@@ -5117,7 +5134,7 @@ dependencies = [
 
 [[package]]
 name = "tracker"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "rusqlite",
  "serde",
