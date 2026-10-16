@@ -1,5 +1,17 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { Activity, CalendarClock, FileUp, History, Lock, Move, PanelTop, RotateCcw, Stethoscope, Users } from "lucide-react";
+import {
+  Activity,
+  CalendarClock,
+  Contact,
+  FileUp,
+  History,
+  Lock,
+  Move,
+  PanelTop,
+  RotateCcw,
+  Stethoscope,
+  Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { CharactersTab } from "@/components/CharactersTab";
@@ -7,6 +19,7 @@ import { DiagnosticsTab } from "@/components/DiagnosticsTab";
 import { EventsTab } from "@/components/EventsTab";
 import { HistoryTab } from "@/components/HistoryTab";
 import { MeterTab } from "@/components/MeterTab";
+import { PlayersTab } from "@/components/PlayersTab";
 import { StatusBanner } from "@/components/StatusBanner";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { Button } from "@/components/ui/button";
@@ -14,6 +27,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, useEvent, useStatus } from "@/lib/api";
+import type { EncounterSnapshot } from "@/lib/types";
 
 const DISCLAIMER_KEY = "aviso-aceito-v1";
 
@@ -27,6 +41,7 @@ function readDisclaimer() {
 
 export default function App() {
   const status = useStatus();
+  const live = useEvent<EncounterSnapshot | null>("combat:snapshot", null);
   const [recording, setRecording] = useState(false);
   const [accepted, setAccepted] = useState(readDisclaimer);
 
@@ -132,6 +147,9 @@ export default function App() {
           <TabsTrigger value="history">
             <History /> Histórico
           </TabsTrigger>
+          <TabsTrigger value="players">
+            <Contact /> Jogadores
+          </TabsTrigger>
           <TabsTrigger value="characters">
             <Users /> Personagens
           </TabsTrigger>
@@ -147,6 +165,9 @@ export default function App() {
         </TabsContent>
         <TabsContent value="history">
           <HistoryTab />
+        </TabsContent>
+        <TabsContent value="players">
+          <PlayersTab live={live} />
         </TabsContent>
         <TabsContent value="characters">
           <CharactersTab />
