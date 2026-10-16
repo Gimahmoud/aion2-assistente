@@ -164,7 +164,7 @@ function Stats({ value }: { value: Json }) {
   );
 }
 
-function ProfileView({ cached }: { cached: CachedProfile }) {
+export function ProfileView({ cached }: { cached: CachedProfile }) {
   const parsed = useMemo(() => {
     try {
       return JSON.parse(cached.json) as { info: Json; equipment: Json };
