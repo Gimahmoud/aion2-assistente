@@ -180,6 +180,7 @@ fn main() {
             official::official_link,
             official::official_refresh,
             official::official_cached,
+            official::official_fetch,
             updater::update_installing,
         ])
         .run(tauri::generate_context!())

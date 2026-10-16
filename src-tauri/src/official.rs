@@ -123,16 +123,8 @@ pub fn official_link(state: State<'_, TrackerState>, character_id: i64, link: Op
         .map_err(|e| e.to_string())
 }
 
-/// Baixa info e equipamentos do personagem ligado e guarda a cópia.
-#[tauri::command]
-pub async fn official_refresh(state: State<'_, TrackerState>, character_id: i64) -> CmdResult<Value> {
-    let link = {
-        let t = state.tracker.lock().unwrap();
-        t.character(character_id)
-            .map_err(|e| e.to_string())?
-            .official
-            .ok_or("este personagem ainda não está ligado a um perfil oficial")?
-    };
+/// `{ info, equipment }` do personagem, como veio da API.
+async fn fetch_profile(link: &OfficialLink) -> CmdResult<Value> {
     let q = [
         ("region", link.region.as_str()),
         ("lang", LANG),
@@ -144,8 +136,29 @@ pub async fn official_refresh(state: State<'_, TrackerState>, character_id: i64)
     let equipment = get_json(&format!("{BASE}/api/character/equipment"), &q)
         .await
         .unwrap_or(Value::Null);
-    let pet = equipped_pet(&equipment);
-    let profile = json!({ "info": info, "equipment": equipment });
+    Ok(json!({ "info": info, "equipment": equipment }))
+}
+
+/// Perfil de qualquer personagem (aba Jogadores), sem guardar nada.
+#[tauri::command]
+pub async fn official_fetch(link: OfficialLink) -> CmdResult<Value> {
+    let profile = fetch_profile(&link).await?;
+    let now = crate::runtime::now_ms() as i64;
+    Ok(json!({ "json": profile.to_string(), "fetched_at_ms": now }))
+}
+
+/// Baixa info e equipamentos do personagem ligado e guarda a cópia.
+#[tauri::command]
+pub async fn official_refresh(state: State<'_, TrackerState>, character_id: i64) -> CmdResult<Value> {
+    let link = {
+        let t = state.tracker.lock().unwrap();
+        t.character(character_id)
+            .map_err(|e| e.to_string())?
+            .official
+            .ok_or("este personagem ainda não está ligado a um perfil oficial")?
+    };
+    let profile = fetch_profile(&link).await?;
+    let pet = equipped_pet(&profile["equipment"]);
     let now = crate::runtime::now_ms() as i64;
     let t = state.tracker.lock().unwrap();
     t.save_profile(character_id, &profile.to_string(), now)
