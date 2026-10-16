@@ -16,9 +16,9 @@ import { useEffect, useState } from "react";
 
 import { CharactersTab } from "@/components/CharactersTab";
 import { DiagnosticsTab } from "@/components/DiagnosticsTab";
-import { EncounterDetail } from "@/components/EncounterDetail";
 import { EventsTab } from "@/components/EventsTab";
 import { HistoryTab } from "@/components/HistoryTab";
+import { MeterTab } from "@/components/MeterTab";
 import { PlayersTab } from "@/components/PlayersTab";
 import { StatusBanner } from "@/components/StatusBanner";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -42,26 +42,12 @@ function readDisclaimer() {
 export default function App() {
   const status = useStatus();
   const live = useEvent<EncounterSnapshot | null>("combat:snapshot", null);
-  const closed = useEvent<{ encounter: EncounterSnapshot } | null>("combat:closed", null);
   const [recording, setRecording] = useState(false);
   const [accepted, setAccepted] = useState(readDisclaimer);
 
-  const [lastSaved, setLastSaved] = useState<EncounterSnapshot | null>(null);
   const overlayLocked = useEvent<boolean>("overlay:click_through", true);
 
   useEffect(() => setRecording(!!status?.recording), [status?.recording]);
-
-  // Ao abrir o app, mostra a última luta salva até começar uma nova.
-  useEffect(() => {
-    api
-      .listEncounters(1)
-      .then((rows) => (rows[0] ? api.getEncounter(rows[0].id) : null))
-      .then(setLastSaved)
-      .catch(() => {});
-  }, []);
-
-  // Mostra a luta ao vivo; quando ela acaba, mantém a última encerrada na tela.
-  const shown = live ?? closed?.encounter ?? lastSaved;
 
   if (!accepted) {
     return (
@@ -175,14 +161,7 @@ export default function App() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="meter">
-          {shown ? (
-            <EncounterDetail encounter={shown} />
-          ) : (
-            <p className="text-muted-foreground p-6 text-sm">
-              Nenhuma luta ainda. Ataque algo no jogo e o DPS aparece aqui. Atalhos: Ctrl+Shift+R inicia uma nova luta,
-              Ctrl+Shift+O destrava o overlay para mover.
-            </p>
-          )}
+          <MeterTab />
         </TabsContent>
         <TabsContent value="history">
           <HistoryTab />

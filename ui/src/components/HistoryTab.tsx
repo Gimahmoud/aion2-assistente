@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, useEvent } from "@/lib/api";
 import { fmtCompact, fmtDateTime, fmtDuration, fmtNumber } from "@/lib/format";
+import { mobName } from "@/lib/mobs";
 import type { EncounterRow, EncounterSnapshot } from "@/lib/types";
 
 export function HistoryTab() {
@@ -47,7 +48,9 @@ export function HistoryTab() {
                   >
                     <TableCell>{fmtDateTime(r.started_at_ms)}</TableCell>
                     <TableCell className="tabular-nums">{fmtDuration(r.duration_ms)}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.target_mob_code ?? "-"}</TableCell>
+                    <TableCell>
+                      {mobName(r.target_mob_code) ?? (r.target_mob_code != null ? `Monstro ${r.target_mob_code}` : "-")}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">{fmtCompact(r.total_damage)}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {r.self_dps != null ? fmtNumber(r.self_dps) : "-"}

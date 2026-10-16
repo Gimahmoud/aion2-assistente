@@ -88,6 +88,11 @@ pub enum GameEvent {
         summon: EntityId,
         owner: EntityId,
     },
+    /// Invocação (armadilha, espírito...) com só o nome do dono.
+    SummonOwnerName {
+        summon: EntityId,
+        name: String,
+    },
     BattleToggle {
         entity: EntityId,
         in_battle: bool,
@@ -392,6 +397,13 @@ fn parse_summon(msg: &Message) -> Vec<GameEvent> {
         });
     }
 
+    // SA: `[entidade][2 bytes][1 = tem dono][nome do dono]`; monstros têm 0.
+    if b.get(c.pos + 2) == Some(&1) {
+        if let Some((name, _)) = read_name(b, c.pos + 3) {
+            out.push(GameEvent::SummonOwnerName { summon, name });
+        }
+    }
+
     if let Some(key) = find(b, &[0xff; 8]) {
         if let Some(op) = find(&b[key + 8..], &[0x07, 0x02, 0x06]) {
             if let Some(owner) = u16_le(b, key + op + 11) {
@@ -545,6 +557,32 @@ mod tests {
                 name: "Gimahmoud".into(),
                 server: Some(1401),
                 job_code: Some(14)
+            }]
+        );
+    }
+
+    #[test]
+    fn decodes_real_sa_summon_owner_name() {
+        let b = hex(
+            "41 36 f2 e8 02 1c 00 01 09 47 69 6d 61 68 6d 6f 75 64 a8 8f 2c 00 00 02 59 7e 15 c7 08 12 be c6 00 d9 58 47",
+        );
+        let ev = decode_one(build_frame(None, &b));
+        assert!(ev.contains(&GameEvent::SummonOwnerName {
+            summon: 46194,
+            name: "Gimahmoud".into()
+        }));
+        assert!(ev.contains(&GameEvent::MobSpawn {
+            entity: 46194,
+            mob_code: 2920360
+        }));
+        // Monstro comum: sem dono.
+        let mob = hex("41 36 a1 b1 01 0f 20 00 85 1b 23 00 00 02 1e aa 45 c5");
+        let ev = decode_one(build_frame(None, &mob));
+        assert_eq!(
+            ev,
+            vec![GameEvent::MobSpawn {
+                entity: 22689,
+                mob_code: 2300805
             }]
         );
     }

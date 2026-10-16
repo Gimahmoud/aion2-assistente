@@ -158,6 +158,7 @@ fn kind(ev: &GameEvent) -> &'static str {
         GameEvent::SelfEntity { .. } => "self_entity",
         GameEvent::MobSpawn { .. } => "mob_spawn",
         GameEvent::SummonOwner { .. } => "summon_owner",
+        GameEvent::SummonOwnerName { .. } => "summon_owner_name",
         GameEvent::BattleToggle { .. } => "battle_toggle",
         GameEvent::MobHp { .. } => "mob_hp",
     }

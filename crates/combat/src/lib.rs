@@ -108,6 +108,9 @@ pub struct Engine {
     cfg: EngineConfig,
     entities: HashMap<EntityId, Entity>,
     summon_owner: HashMap<EntityId, EntityId>,
+    /// Invocações que só trazem o nome do dono; resolvidas no primeiro dano.
+    summon_owner_name: HashMap<EntityId, String>,
+    player_by_name: HashMap<String, EntityId>,
     mob_code: HashMap<EntityId, u32>,
     mob_hp: HashMap<EntityId, u32>,
     self_id: Option<EntityId>,
@@ -148,10 +151,17 @@ impl Engine {
             }
             GameEvent::OtherCharacter { entity, name, job_code } => self.set_player(*entity, name, *job_code),
             GameEvent::MobSpawn { entity, mob_code } => {
+                // A entidade pode ter sido reaproveitada: esquece o que era antes.
                 self.mob_code.insert(*entity, *mob_code);
+                self.mob_hp.remove(entity);
+                self.summon_owner.remove(entity);
+                self.summon_owner_name.remove(entity);
             }
             GameEvent::SummonOwner { summon, owner } => {
                 self.summon_owner.insert(*summon, *owner);
+            }
+            GameEvent::SummonOwnerName { summon, name } => {
+                self.summon_owner_name.insert(*summon, name.clone());
             }
             GameEvent::MobHp { entity, hp } => {
                 self.mob_hp.insert(*entity, *hp);
@@ -218,6 +228,7 @@ impl Engine {
     }
 
     fn set_player(&mut self, id: EntityId, name: &str, job: Option<u8>) {
+        self.player_by_name.insert(name.to_owned(), id);
         let e = self.entities.entry(id).or_default();
         e.name = Some(name.to_owned());
         e.is_player = true;
@@ -227,8 +238,13 @@ impl Engine {
     }
 
     /// Dono final de uma entidade (invocações somam ao invocador).
-    fn owner_of(&self, mut id: EntityId) -> EntityId {
+    fn owner_of(&mut self, mut id: EntityId) -> EntityId {
         for _ in 0..4 {
+            if !self.summon_owner.contains_key(&id) {
+                if let Some(owner) = self.summon_owner_name.get(&id).and_then(|n| self.player_named(n)) {
+                    self.summon_owner.insert(id, owner);
+                }
+            }
             match self.summon_owner.get(&id) {
                 Some(&o) if o != id => id = o,
                 _ => break,
@@ -237,17 +253,47 @@ impl Engine {
         id
     }
 
+    fn player_named(&self, name: &str) -> Option<EntityId> {
+        if self.own_name.as_deref() == Some(name) && self.self_id.is_some() {
+            return self.self_id;
+        }
+        self.player_by_name.get(name).copied()
+    }
+
+    /// Monstro ou invocação de dono desconhecido.
+    fn is_npc(&self, id: EntityId) -> bool {
+        self.mob_code.contains_key(&id)
+            && self.self_id != Some(id)
+            && !self.entities.get(&id).is_some_and(|e| e.is_player)
+    }
+
+    /// Jogador, mesmo sem nome: quem já causou dano com skill de classe e não
+    /// é monstro. Cura e buff em jogador chegam como "dano" e não contam.
+    fn is_player_target(&self, id: EntityId) -> bool {
+        self.self_id == Some(id)
+            || self
+                .entities
+                .get(&id)
+                .is_some_and(|e| e.is_player || (e.class.is_some() && !self.mob_code.contains_key(&id)))
+    }
+
     fn on_damage(&mut self, d: &DamageEvent, ts: u64) {
         let actor = self.owner_of(d.actor);
         let skill = normalize_skill(d.skill_raw);
         let skill_class = Class::from_skill(skill);
         let known_player = self.entities.get(&actor).is_some_and(|e| e.is_player);
-        // Só conta dano causado por jogadores; monstros batendo em nós não.
-        if !known_player && skill_class.is_none() {
+        // Só conta dano causado por jogadores; monstros batendo em nós não
+        // (alguns monstros usam códigos de skill parecidos com os de classe).
+        if self.is_npc(actor) || (!known_player && skill_class.is_none()) {
             self.ignored_damage += 1;
             return;
         }
-        if self.entities.get(&d.target).is_some_and(|e| e.is_player) {
+        if self.is_player_target(d.target) {
+            self.ignored_damage += 1;
+            return;
+        }
+        // Golpes atrasados num alvo já morto não abrem uma luta nova.
+        if self.current.is_none() && self.mob_hp.get(&d.target) == Some(&0) {
             self.ignored_damage += 1;
             return;
         }
@@ -384,6 +430,98 @@ mod tests {
             },
             0,
         );
+    }
+
+    #[test]
+    fn late_hits_on_dead_target_do_not_open_a_fight() {
+        let mut e = Engine::new(EngineConfig::default());
+        me(&mut e);
+        e.handle(
+            &GameEvent::MobSpawn {
+                entity: 100,
+                mob_code: 2_300_812,
+            },
+            0,
+        );
+        e.handle(&hit(1, 100, 15_010_013, 1_000), 1_000);
+        e.handle(&GameEvent::MobHp { entity: 100, hp: 0 }, 1_100);
+        let closed = e.handle(
+            &GameEvent::BattleToggle {
+                entity: 100,
+                in_battle: false,
+            },
+            1_200,
+        );
+        assert_eq!(closed.unwrap().total_damage, 1_000);
+        e.handle(&hit(1, 100, 15_010_013, 50), 2_000);
+        assert!(e.snapshot().is_none());
+        // Reaparece (mesma entidade, monstro novo): conta de novo.
+        e.handle(
+            &GameEvent::MobSpawn {
+                entity: 100,
+                mob_code: 2_300_812,
+            },
+            30_000,
+        );
+        e.handle(&hit(1, 100, 15_010_013, 70), 30_100);
+        assert_eq!(e.snapshot().unwrap().total_damage, 70);
+    }
+
+    #[test]
+    fn monsters_and_heals_on_players_do_not_count() {
+        let mut e = Engine::new(EngineConfig::default());
+        me(&mut e);
+        e.handle(
+            &GameEvent::MobSpawn {
+                entity: 100,
+                mob_code: 2_300_812,
+            },
+            0,
+        );
+        e.handle(&hit(1, 100, 15_010_013, 1_000), 1_000);
+        // Jogador sem nome (só pela skill de classe) e cura nele.
+        e.handle(&hit(7, 100, 17_010_010, 500), 1_100);
+        e.handle(&hit(7, 1, 17_090_240, 3_000), 1_200);
+        e.handle(&hit(7, 8, 17_090_240, 3_000), 1_200);
+        e.handle(&hit(8, 100, 14_340_130, 200), 1_300);
+        e.handle(&hit(7, 8, 17_090_240, 3_000), 1_400);
+        // O monstro usa um código parecido com skill de classe.
+        e.handle(&hit(100, 8, 12_000_161, 900), 1_500);
+        let s = e.snapshot().unwrap();
+        assert_eq!(s.total_damage, 1_000 + 500 + 3_000 + 200);
+        assert!(s.actors.iter().all(|a| a.entity != 100));
+    }
+
+    #[test]
+    fn summon_damage_goes_to_owner_by_name() {
+        let mut e = Engine::new(EngineConfig::default());
+        me(&mut e);
+        e.handle(
+            &GameEvent::MobSpawn {
+                entity: 50,
+                mob_code: 2_920_360,
+            },
+            0,
+        );
+        e.handle(
+            &GameEvent::SummonOwnerName {
+                summon: 50,
+                name: "Eu".into(),
+            },
+            0,
+        );
+        e.handle(
+            &GameEvent::MobSpawn {
+                entity: 100,
+                mob_code: 2_300_812,
+            },
+            0,
+        );
+        e.handle(&hit(50, 100, 14_170_021, 600), 1_000);
+        let s = e.snapshot().unwrap();
+        assert_eq!(s.actors.len(), 1);
+        assert_eq!(s.actors[0].entity, 1);
+        assert_eq!(s.actors[0].damage, 600);
     }
 
     #[test]

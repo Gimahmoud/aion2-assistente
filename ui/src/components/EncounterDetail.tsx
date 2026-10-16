@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { className_, fmtCompact, fmtDuration, fmtNumber, fmtPercent } from "@/lib/format";
+import { isBoss, targetLabel } from "@/lib/mobs";
 import { groupSkills } from "@/lib/skills";
 import type { EncounterSnapshot } from "@/lib/types";
 
@@ -20,13 +21,16 @@ export function EncounterDetail({ encounter }: { encounter: EncounterSnapshot })
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
       <Card className="gap-4">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Luta #{encounter.id}
+          <CardTitle className="flex flex-wrap items-center gap-2">
+            {targetLabel(target)}
             {encounter.live ? <Badge>ao vivo</Badge> : <Badge variant="secondary">encerrada</Badge>}
+            {isBoss(target?.mob_code) && <Badge variant="outline">chefe</Badge>}
+            {target?.hp === 0 && <Badge variant="outline">derrotado</Badge>}
           </CardTitle>
           <CardDescription>
-            {fmtDuration(encounter.duration_ms)} · dano total {fmtCompact(encounter.total_damage)}
-            {target && ` · alvo ${target.mob_code ?? `#${target.entity}`}`}
+            {fmtDuration(encounter.duration_ms)} · dano total {fmtCompact(encounter.total_damage)} · DPS do grupo{" "}
+            {fmtNumber(encounter.total_damage / Math.max(1, encounter.duration_ms / 1000))}
+            {target?.mob_code != null && <span className="ml-2 font-mono text-xs">{target.mob_code}</span>}
           </CardDescription>
         </CardHeader>
         <CardContent>
