@@ -34,6 +34,48 @@ export function useEvent<T>(name: string, initial: T): T {
   return value;
 }
 
+export interface ClosedEncounter {
+  db_id: number;
+  encounter: EncounterSnapshot;
+}
+
+/**
+ * Últimas lutas encerradas, a mais nova primeiro. Começa com as salvas no
+ * banco e recebe cada `combat:closed` (nenhuma se perde, mesmo seguidas).
+ */
+export function useRecentEncounters(limit: number): ClosedEncounter[] {
+  const [list, setList] = useState<ClosedEncounter[]>([]);
+  useEffect(() => {
+    let off: UnlistenFn | undefined;
+    let cancelled = false;
+    const add = (items: ClosedEncounter[]) =>
+      setList((prev) => {
+        const seen = new Set(items.map((i) => i.db_id));
+        return [...items, ...prev.filter((p) => !seen.has(p.db_id))]
+          .sort((a, b) => b.db_id - a.db_id)
+          .slice(0, limit);
+      });
+    listen<ClosedEncounter>("combat:closed", (e) => add([e.payload])).then((fn) => {
+      if (cancelled) fn();
+      else off = fn;
+    });
+    api
+      .listEncounters(limit)
+      .then((rows) =>
+        Promise.all(rows.map((r) => api.getEncounter(r.id).then((e) => (e ? { db_id: r.id, encounter: e } : null)))),
+      )
+      .then((items) => {
+        if (!cancelled) add(items.filter((i): i is ClosedEncounter => i !== null));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  }, [limit]);
+  return list;
+}
+
 /** Status atual: busca uma vez e depois segue o evento `app:status`. */
 export function useStatus(): Status | null {
   const [initial, setInitial] = useState<Status | null>(null);

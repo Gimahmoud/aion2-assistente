@@ -4,6 +4,7 @@ import { Move } from "lucide-react";
 import { MeterBars } from "@/components/MeterBars";
 import { useEvent } from "@/lib/api";
 import { fmtCompact, fmtDuration } from "@/lib/format";
+import { targetLabel } from "@/lib/mobs";
 import type { EncounterSnapshot } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ export default function Overlay() {
         {shown && (
           <>
             <span className="tabular-nums opacity-80">{fmtDuration(shown.duration_ms)}</span>
+            <span className="min-w-0 truncate opacity-80">{targetLabel(shown.target)}</span>
             <span className="ml-auto tabular-nums opacity-80">{fmtCompact(shown.total_damage)}</span>
             {!shown.live && <span className="opacity-60">fim</span>}
           </>
