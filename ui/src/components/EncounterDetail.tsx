@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { className_, fmtCompact, fmtDuration, fmtNumber, fmtPercent } from "@/lib/format";
-import { targetLabel } from "@/lib/mobs";
+import { isBoss, targetLabel } from "@/lib/mobs";
 import { groupSkills } from "@/lib/skills";
 import type { EncounterSnapshot } from "@/lib/types";
 
@@ -24,6 +24,7 @@ export function EncounterDetail({ encounter }: { encounter: EncounterSnapshot })
           <CardTitle className="flex flex-wrap items-center gap-2">
             {targetLabel(target)}
             {encounter.live ? <Badge>ao vivo</Badge> : <Badge variant="secondary">encerrada</Badge>}
+            {isBoss(target?.mob_code) && <Badge variant="outline">chefe</Badge>}
             {target?.hp === 0 && <Badge variant="outline">derrotado</Badge>}
           </CardTitle>
           <CardDescription>
